@@ -1,4 +1,4 @@
-ffffffffffffffffffffffffffffffffffffff# Project Soul: DSA Tracker & Spaced Repetition App
+# Project Soul: DSA Tracker & Spaced Repetition App
 
 ## Core Architecture
 - **Stack**: MERN (MongoDB, Express.js, React, Node.js)
@@ -10,15 +10,18 @@ ffffffffffffffffffffffffffffffffffffff# Project Soul: DSA Tracker & Spaced Repet
 - **Phase 1: Architecture & Planning**:
   - Established project structure and environment initialization steps.
   - Designed Mongoose schemas for `Question` and `Pattern` models, integrating SM-2 tracking fields.
-  - Prepared initial terminal commands for user execution (adhering to Manual Handoff rules).
+  - Prepared initial terminal commands for user execution.
+- **Phase 2: Backend API & AI Integration** (Current):
+  - Setting up the Express server (`index.js`, DB config).
+  - Building the LangChain.js endpoint using `withStructuredOutput` to auto-extract algorithmic patterns from user notes.
+  - Building CRUD controllers for Questions with SM-2 logic (updating `easeFactor`, `interval`, `repetitions`).
 
 ## Next Logical Steps
-1. User confirmation of schemas and directory structure.
-2. Setup of Express API endpoints for CRUD operations.
-3. Implementation of LangChain.js auto-classifier logic.
-4. Construction of the React frontend dashboard and spaced repetition view.
+1. User creates the provided backend files (`index.js`, config, controllers, routes).
+2. Test the LangChain AI endpoint to ensure it correctly classifies a "trick" into a known pattern (e.g., "NGE" -> "Monotonic Stack").
+3. Construction of the React frontend dashboard and spaced repetition view.
 
 ## Key Decisions
 - Adopted SM-2 fields (`easeFactor`, `interval`, `repetitions`) directly into the `Question` schema for streamlined spaced repetition.
-- Emphasized strict relation between questions and patterns to support the progressive learning workflow (e.g., standard stacks -> NGE -> Monotonic Stack).
-- Kept the backend decoupled to easily swap AI wrappers or models in the future.
+- Using Zod with LangChain.js `.withStructuredOutput()` to guarantee the LLM returns an exact JSON array of pattern names.
+- Decoupled the AI logic into a separate controller so it can be called explicitly when saving a question, ensuring we don't accidentally create duplicates.
