@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js"
   },
   "keywords": [],
   "author": "",
@@ -11,12 +13,14 @@
   "dependencies": {
     "@langchain/core": "^1.2.9",
     "@langchain/openai": "^1.5.8",
+    "@langchain/openrouter": "^0.4.10",
     "body-parser": "^2.3.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "langchain": "^1.5.10",
-    "mongoose": "^9.9.3"
+    "mongoose": "^9.9.3",
+    "zod": "^4.4.3"
   },
   "description": "",
   "type": "module",

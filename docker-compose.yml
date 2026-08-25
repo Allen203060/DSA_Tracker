@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: dsa_tracker_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  server:
+    build: 
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: dsa_tracker_server
+    ports:
+      - "5000:5000"
+    environment:
+      # Use the Docker internal DNS 'mongodb' instead of 'localhost'
+      - MONGO_URI=mongodb://mongodb:27017/dsa_tracker
+      - PORT=5000
+    env_file:
+      - ./server/.env
+    volumes:
+      - ./server:/app
+      - /app/node_modules # Prevents local node_modules from overwriting container's
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: dsa_tracker_client
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true # Ensures Vite Hot Module Replacement works inside Docker
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

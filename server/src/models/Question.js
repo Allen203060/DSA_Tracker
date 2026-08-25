@@ -2,11 +2,18 @@ import mongoose from 'mongoose';
 
 const questionSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true },
-  url: { type: String, required: true },
+  url: { type: String, required: false },
   
   // Your personal notes on the "trick", pattern application, and aha-moments.
   notes: { type: String, required: true },
   
+  // AI-enhanced version of your notes (cleaned up, better formatting)
+  enhancedNotes: { type: String, required: false },
+  
+  // Hierarchical categorization: Topic (e.g. Stack) & Subtopic (e.g. Monotonic Stack, Index/Width Calc)
+  topic: { type: String, default: 'General', trim: true },
+  subtopic: { type: String, default: 'General', trim: true },
+
   // The patterns applied in this question (can be auto-populated by LangChain)
   patterns: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Pattern' }],
 
@@ -21,8 +28,14 @@ const questionSchema = new mongoose.Schema({
   // The current interval in days before you need to review it again
   interval: { type: Number, default: 0 }, 
   
-  // The exact date this question should show up on your dashboard next
-  nextReviewDate: { type: Date, default: Date.now }, 
+  // The exact date this question should show up on your dashboard next (defaults to tomorrow)
+  nextReviewDate: { type: Date, default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) }, 
+  
+  // History of recall reviews performed on this question
+  reviewHistory: [{
+    reviewedAt: { type: Date, default: Date.now },
+    quality: { type: Number, required: true }
+  }],
 
 }, { timestamps: true });
 
