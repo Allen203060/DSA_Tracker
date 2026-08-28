@@ -10,6 +10,16 @@ const questionSchema = new mongoose.Schema({
   // AI-enhanced version of your notes (cleaned up, better formatting)
   enhancedNotes: { type: String, required: false },
   
+  // Solution Code & Language for Quick Revision
+  code: { type: String, default: '' },
+  codeLanguage: { type: String, default: 'cpp' },
+
+  // Custom Test Cases for Playground Practice
+  testCases: [{
+    input: { type: String, default: '' },
+    expectedOutput: { type: String, default: '' }
+  }],
+
   // Hierarchical categorization: Topic (e.g. Stack) & Subtopic (e.g. Monotonic Stack, Index/Width Calc)
   topic: { type: String, default: 'General', trim: true },
   subtopic: { type: String, default: 'General', trim: true },

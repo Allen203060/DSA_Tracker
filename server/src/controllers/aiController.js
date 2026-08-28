@@ -13,11 +13,12 @@ export const classifyPattern = async (req, res) => {
       enhancedNotes: z.string().describe("Clean, highly readable, structured revision notes formatted with bulleted points and spaced paragraphs."),
     });
 
-    // 2. Initialize the OpenRouter Chat Model
+    // 2. Initialize the OpenRouter Chat Model with NVIDIA Nemotron model & maxTokens limit
+    const modelName = process.env.OPENROUTER_MODEL || "nvidia/nemotron-3.5-lightning";
     const llm = new ChatOpenRouter({
-      // You can replace this with any model on OpenRouter (e.g. meta-llama/llama-3.1-8b-instruct)
-      model: "anthropic/claude-3-haiku", 
-      temperature: 0, 
+      model: modelName, 
+      temperature: 0,
+      maxTokens: 1000, 
     }).withStructuredOutput(patternSchema, {
       name: "extract_patterns",
       strict: true,
@@ -69,9 +70,11 @@ export const gradeRecall = async (req, res) => {
       feedback: z.string().describe("1-2 sentences of constructive feedback pointing out what they missed or praising their accuracy."),
     });
 
+    const modelName = process.env.OPENROUTER_MODEL || "nvidia/nemotron-3.5-lightning";
     const llm = new ChatOpenRouter({
-      model: "anthropic/claude-3-haiku", 
+      model: modelName, 
       temperature: 0,
+      maxTokens: 1000,
     }).withStructuredOutput(gradingSchema, {
       name: "grade_recall",
       strict: true,
@@ -100,6 +103,112 @@ export const gradeRecall = async (req, res) => {
       0 - Complete blank.
 
       Return the integer score and 1-2 sentences of friendly, hype-up feedback! Use casual language, use emojis, and be their biggest cheerleader (but don't lie if they got a 0).
+    `;
+
+    const response = await llm.invoke([{ role: "user", content: prompt }]);
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const gradeCode = async (req, res) => {
+  const { title, code, codeLanguage, originalNotes, testCases } = req.body;
+
+  try {
+    const codeGradingSchema = z.object({
+      score: z.number().min(0).max(100).describe("Overall score percentage (0 to 100) based on correctness, edge cases, and test case evaluation."),
+      passed: z.boolean().describe("True if code correctly implements the solution and satisfies test cases without critical bugs."),
+      timeComplexity: z.string().describe("Estimated Time Complexity in Big-O notation (e.g. O(N), O(N log N))."),
+      spaceComplexity: z.string().describe("Estimated Auxiliary Space Complexity in Big-O notation (e.g. O(1), O(N))."),
+      summary: z.string().describe("Concise 1-2 sentence executive evaluation summary of the student code."),
+      testResults: z.array(z.object({
+        input: z.string().describe("The input test case."),
+        expectedOutput: z.string().describe("The expected output."),
+        actualOutput: z.string().describe("The simulated output produced by running the student code."),
+        passed: z.boolean().describe("Whether this test case passed."),
+        explanation: z.string().describe("Execution detail or error hint if failed.")
+      })).describe("Detailed evaluation breakdown for each test case."),
+      feedback: z.string().describe("Formatted code review breakdown detailing key strengths, potential bugs, edge cases, and optimization tips.")
+    });
+
+    const modelName = process.env.OPENROUTER_MODEL || "nvidia/nemotron-3.5-lightning";
+    const llm = new ChatOpenRouter({
+      model: modelName,
+      temperature: 0,
+      maxTokens: 1500,
+    }).withStructuredOutput(codeGradingSchema, {
+      name: "grade_code",
+      strict: true,
+    });
+
+    const formattedTestCases = Array.isArray(testCases) && testCases.length > 0
+      ? testCases.map((tc, idx) => `Test Case ${idx + 1}:\n  Input: ${tc.input || 'Default'}\n  Expected Output: ${tc.expectedOutput || 'Default'}`).join('\n\n')
+      : "No custom test cases provided. Generate 2 standard test cases relevant to this problem.";
+
+    const prompt = `
+      You are an expert C++/Python/Java/JS compiler simulator, static code analyzer, and DSA code grader.
+      You are grading a student's solution submitted in an interactive code playground.
+
+      Problem Title: ${title || 'Algorithmic Problem'}
+      Programming Language: ${codeLanguage || 'cpp'}
+      Original Problem Notes / Constraints: ${originalNotes || 'Standard DSA problem'}
+
+      Student Submitted Code:
+      \`\`\`${codeLanguage || 'cpp'}
+      ${code || '// No code submitted'}
+      \`\`\`
+
+      Test Cases to Evaluate Against:
+      ${formattedTestCases}
+
+      INSTRUCTIONS:
+      1. Perform mental execution and static analysis of the student's code.
+      2. For each test case, simulate running the code step-by-step to compute the actual output.
+      3. Check for compilation errors, off-by-one errors, infinite loops, memory leaks, uninitialized variables, or incorrect boundary conditions.
+      4. Calculate Big-O Time Complexity and Space Complexity.
+      5. Provide an overall score (0 to 100), pass/fail flag, and clear structured feedback.
+    `;
+
+    const response = await llm.invoke([{ role: "user", content: prompt }]);
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const generateBoilerplate = async (req, res) => {
+  const { title, url, codeLanguage } = req.body;
+
+  try {
+    const boilerplateSchema = z.object({
+      boilerplate: z.string().describe("The exact starting boilerplate code for the given language. Should look exactly like a LeetCode starting template.")
+    });
+
+    const modelName = process.env.OPENROUTER_MODEL || "nvidia/nemotron-3.5-lightning";
+    const llm = new ChatOpenRouter({
+      model: modelName,
+      temperature: 0,
+      maxTokens: 500,
+    }).withStructuredOutput(boilerplateSchema, {
+      name: "generate_boilerplate",
+      strict: true,
+    });
+
+    const prompt = `
+      You are an expert DSA platform engineer. 
+      Generate the EXACT starting boilerplate code snippet for the following algorithmic problem, perfectly mirroring how it would look in a LeetCode coding environment.
+      
+      Problem Title: ${title || 'Unknown Algorithm'}
+      URL/Link (if provided, use it for context): ${url || 'None provided'}
+      Target Programming Language: ${codeLanguage || 'cpp'}
+      
+      INSTRUCTIONS:
+      - For C++, provide the includes and the class Solution with the correct public method signature.
+      - For Java, provide the class Solution with the correct public method signature.
+      - For Python, provide the class Solution: def ... signature.
+      - Ensure the function name matches typical standard conventions (e.g., trap, twoSum, maxSlidingWindow).
+      - Do NOT include any solution logic, just the empty method / class signature ready for the user to write their code.
     `;
 
     const response = await llm.invoke([{ role: "user", content: prompt }]);

@@ -4,7 +4,7 @@ import Pattern from '../models/Pattern.js';
 // CREATE Question
 export const addQuestion = async (req, res) => {
   try {
-    const { title, url, notes, enhancedNotes, topic, subtopic, patternNames } = req.body;
+    const { title, url, notes, enhancedNotes, topic, subtopic, patternNames, code, codeLanguage, testCases } = req.body;
     
     // Find or create patterns
     const patternIds = [];
@@ -30,6 +30,9 @@ export const addQuestion = async (req, res) => {
       topic: topic || 'General',
       subtopic: subtopic || 'General',
       patterns: patternIds,
+      code: code || '',
+      codeLanguage: codeLanguage || 'cpp',
+      testCases: Array.isArray(testCases) ? testCases : [],
       interval: 1,
       nextReviewDate: initialReviewDate
     });
@@ -132,6 +135,39 @@ export const deleteQuestion = async (req, res) => {
       return res.status(404).json({ message: "Question not found" });
     }
     res.json({ message: "Question deleted successfully", id });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// UPDATE Question (Code, Notes, Test Cases, Language)
+export const updateQuestion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, url, notes, enhancedNotes, topic, subtopic, code, codeLanguage, testCases } = req.body;
+
+    const updateFields = {};
+    if (title !== undefined) updateFields.title = title;
+    if (url !== undefined) updateFields.url = url;
+    if (notes !== undefined) updateFields.notes = notes;
+    if (enhancedNotes !== undefined) updateFields.enhancedNotes = enhancedNotes;
+    if (topic !== undefined) updateFields.topic = topic;
+    if (subtopic !== undefined) updateFields.subtopic = subtopic;
+    if (code !== undefined) updateFields.code = code;
+    if (codeLanguage !== undefined) updateFields.codeLanguage = codeLanguage;
+    if (testCases !== undefined) updateFields.testCases = testCases;
+
+    const updatedQuestion = await Question.findByIdAndUpdate(
+      id,
+      { $set: updateFields },
+      { new: true, runValidators: true }
+    ).populate('patterns');
+
+    if (!updatedQuestion) {
+      return res.status(404).json({ message: "Question not found" });
+    }
+
+    res.json(updatedQuestion);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

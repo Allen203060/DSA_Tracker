@@ -15,3 +15,14 @@ When submitting a new question from the React frontend, the UI threw a `500 Inte
 By modifying the frontend `catch` block to expose `error.response.data.error`, we discovered: `Question validation failed: url: Path 'url' is required.` The Mongoose schema strictly required a URL, but the frontend was designed to treat the URL as an optional field. Because the URL string was empty, MongoDB rejected the document insertion, triggering a 500 error in the Express route.
 **The Solution:**
 Updated the Mongoose schema definition for the `url` field to `required: false`.
+
+## Challenge 3: OpenRouter Credit Limit & 4096-Token Default Reserve Error
+**The Problem:**
+OpenRouter returned an error: `This request requires more credits, or fewer max_tokens. You requested up to 4096 tokens, but can only afford 1766`.
+**Root Cause:**
+By default, `ChatOpenRouter` requests the max context window (4096 tokens) if `maxTokens` is unconstrained, causing OpenRouter's pre-flight balance check to reject requests on accounts with remaining but smaller credit balances.
+**Solution:**
+1. Switched model to `nvidia/nemotron-3.5-lightning` (with free model fallback `nvidia/nemotron-3-super-120b-a12b:free`).
+2. Explicitly configured `maxTokens: 1000` in `ChatOpenRouter` instantiation, limiting the pre-flight token reserve check to 1000 tokens.
+**Key Takeaway:**
+Always set an explicit `maxTokens` cap on LLM calls when using pay-per-token API gateways to avoid inflated pre-allocation checks.
