@@ -286,7 +286,7 @@ function App() {
   };
 
   // Filter displayed questions based on selected topic / subtopic
-  const targetQuestions = (selectedTopic || selectedSubtopic) ? allQuestions : questions;
+  const targetQuestions = questions;
 
   const displayedQuestions = targetQuestions.filter(q => {
     const tax = getTaxonomy(q);
@@ -667,9 +667,11 @@ function App() {
             </button>
           </div>
 
-          {/* Topics & Taxonomy List matching dashboard.png */}
+          {/* Topics & Taxonomy List */}
           <div className="space-y-1 text-sm">
-            {['Dynamic Programming', 'Recursion', 'Greedy', 'Stack', 'Queue'].map((topicName) => {
+            {Object.keys(topicTree).length === 0 ? (
+              <p className="text-xs text-gray-500 italic px-3 py-2">No categorized topics yet.</p>
+            ) : Object.keys(topicTree).sort().map((topicName) => {
               const hasItems = topicTree[topicName];
               const isTopicSelected = selectedTopic === topicName && !selectedSubtopic;
               const isExpanded = expandedTopics[topicName];
@@ -697,19 +699,6 @@ function App() {
                   {/* Subtopics */}
                   {isExpanded && (
                     <div className="pl-8 pr-2 py-1 space-y-1">
-                      {topicName === 'Stack' && (!hasItems || Object.keys(hasItems.subtopics).length === 0) && (
-                        <>
-                          <div className="text-xs text-gray-400 py-1 hover:text-white cursor-pointer">Balance Parentheses</div>
-                          <div className="text-xs text-gray-400 py-1 hover:text-white cursor-pointer">Next Greater Element</div>
-                          <div className="text-xs text-gray-400 py-1 hover:text-white cursor-pointer">Binary Tree Traversal</div>
-                        </>
-                      )}
-                      {topicName === 'Queue' && (!hasItems || Object.keys(hasItems.subtopics).length === 0) && (
-                        <>
-                          <div className="text-xs text-gray-400 py-1 hover:text-white cursor-pointer">Binary Tree Traversal</div>
-                          <div className="text-xs text-gray-400 py-1 hover:text-white cursor-pointer">Sliding Window</div>
-                        </>
-                      )}
                       {hasItems && Object.entries(hasItems.subtopics).map(([subName, subCount]) => {
                         const isSubSelected = selectedSubtopic?.topic === topicName && selectedSubtopic?.subtopic === subName;
                         return (
