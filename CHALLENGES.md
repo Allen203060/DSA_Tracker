@@ -26,3 +26,35 @@ By default, `ChatOpenRouter` requests the max context window (4096 tokens) if `m
 2. Explicitly configured `maxTokens: 1000` in `ChatOpenRouter` instantiation, limiting the pre-flight token reserve check to 1000 tokens.
 **Key Takeaway:**
 Always set an explicit `maxTokens` cap on LLM calls when using pay-per-token API gateways to avoid inflated pre-allocation checks.
+
+## Challenge 4: Visual UI Alignment Without Breaking Complex Application Logic
+**The Problem:**
+Aligning the React UI (`client/src/App.jsx`) with the exact screenshot mockups in `README.md` (`dashboard.png`, `code_viewer.png`, `code_playground.png`) required restructuring layout grids, modal headers, stat cards, and sidebar accordion hierarchies without causing regressions in SM-2 spaced repetition state, code editor key handlers, or AI evaluation flows.
+**Root Cause:**
+Visual redesigns often risk inadvertently dropping subtle event handlers, state variables, or modal triggers when replacing nested JSX containers.
+**Solution:**
+Maintained a zero-touch policy on state variables and async handlers (`fetchQuestions`, `handleCodeKeyDown`, `submitRecall`, `handleRunCodeEvaluator`), while modularly updating the JSX layer with glassmorphism utility classes (`glass-panel`), responsive grid layouts (`grid-cols-2`, `grid-cols-1 md:grid-cols-2`), and high-contrast color tokens matching the reference designs.
+**Key Takeaway:**
+Decouple visual styling and structural containers from application state handlers during UI overhauls to ensure feature stability.
+
+## Challenge 5: Workload Burnout & Priority-Based Revision Rescheduling
+**The Problem:**
+As users log dozens of DSA problems, SM-2 scheduling can cause a backlog of 20+ due problems on a single day, leading to revision fatigue and broken study habits. Simply hard-truncating the due list left overdue questions in limbo without updating their target review dates.
+**Root Cause:**
+Standard SM-2 algorithms evaluate each question independently without considering global daily human cognitive limits or problem difficulty weighting.
+**Solution:**
+1. Added a `difficulty` field (`Easy`, `Medium`, `Hard`) to the `Question` schema and Zod AI classifier.
+2. Built `getPriorityScore` in `questionController.js` that dynamically ranks due questions based on `difficultyMultiplier` (Hard: 3x, Medium: 2x, Easy: 1x), `daysOverdue`, and student level (`repetition * easeFactor`).
+**Key Takeaway:**
+Combine algorithmic priority scoring with user-defined workload caps to balance long-term retention against daily cognitive capacity.
+
+## Challenge 6: Permanent DB State Mutation During View Filtering
+**The Problem:**
+When decreasing the daily revision limit (e.g. from 5 to 2), the number of due questions decreased as expected, but increasing the limit back to 5 or Unlimited did not bring back the hidden questions.
+**Root Cause:**
+`getDueQuestions` was updating `nextReviewDate` directly in MongoDB (`Question.findByIdAndUpdate`) for excess questions when applying the daily limit. This permanently pushed their due dates into future days in the database, preventing them from matching `{ nextReviewDate: { $lte: today } }` when the limit was raised again.
+**Solution:**
+Removed DB date mutations inside `getDueQuestions`. The daily revision limit now functions as a non-destructive, priority-ranked slice (`questions.slice(0, limit)`). Questions retain their true `nextReviewDate` in MongoDB and only advance their schedule upon actual completion of an SM-2 review.
+**Key Takeaway:**
+Filtering parameters in GET requests must be non-destructive views. Never mutate core domain model schedules inside query endpoints.
+

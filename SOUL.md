@@ -10,23 +10,30 @@
 ## Current Progress
 - **Phase 1-4**: Architecture, Backend, Docker, and Core UI complete.
 - **Phase 5: State & API Integration**: Forms and queues connected to DB.
-- **Phase 6: Advanced Feature Implementation** (Current):
-  - **AI-Graded SM-2 Loop**: Replaced manual 0-5 self-rating with a chill, friendly AI study buddy evaluator. The user types their recalled logic, and the AI compares it to the original notes, scores it 0-5, and updates the SM-2 algorithm.
+- **Phase 6: Advanced Feature Implementation**:
+  - **AI-Graded SM-2 Loop**: Replaced manual 0-5 self-rating with a chill, friendly AI study buddy evaluator.
   - **AI Enhanced Notes**: LangChain automatically cleans up, structures, and converts raw student notes into pedagogical Markdown guides stored in `enhancedNotes`.
   - **Collapsible Notes & Full Schedule View**: Toggle between "Due Today" and "All Questions" with collapsible AI notes.
   - **Question Deletion**: Added full CRUD capability to remove questions from the database.
-  - **Problem URL Context in AI Prompt & UI**: Optional LeetCode link is now passed directly into AI classification & grading prompts, and displayed with an external link icon on question cards and review modal headers.
-  - **Initial Revision Schedule Offset**: Newly logged questions now automatically schedule 1 day into the future (tomorrow) instead of showing up as due on the day they were solved.
-  - **User-Approach First AI Classification & Enhancement**: Updated the AI system prompt (`aiController.js`) to treat the student's raw notes as the absolute source of truth. The LLM must classify the topic/subtopic based on the algorithm the user *actually implemented* (e.g. `Stack` > `Monotonic Stack` for Max Width Ramp if the user used a stack), NOT based on generic LeetCode tags. Added a UI toggle on question cards allowing instant switching between "Your Raw Thoughts" and "AI Structured Guide".
-  - **Left Sidebar Hierarchical Accordion**: Implemented a two-tiered taxonomy system where primary topics (e.g. `Stack`, `Queue`, `Array & Two Pointers`) are kept strictly distinct, with expandable subtopics (e.g. `Monotonic Stack`, `Index / Width Calculation`, `Monotonic Queue`, `Sliding Window`). Added an inline dynamic taxonomy inference engine so existing questions are auto-categorized into topics based on their pattern tags. Selecting any topic in the sidebar searches across all logged questions so every question is instantly accessible.
-  - **Graft AI Agent Integration**: Integrated NanoNets Graft (`@nanonets/graft`) to turbocharge AI coding agents by providing context-aware graph mappings of the entire repository. This generates deterministic, local knowledge graphs in `graft/` and wires into our agents (`.gemini/`, `GEMINI.md`, `AGENTS.md`) to eliminate exploration overhead and improve response correctness.
-  - **NVIDIA Nemotron LLM & Token Cap Optimization**: Configured `aiController.js` to utilize NVIDIA Nemotron models (`nvidia/nemotron-3.5-lightning` or `nvidia/nemotron-3-super-120b-a12b:free`) via `OPENROUTER_MODEL` in `server/.env`. Set `maxTokens: 1000` to prevent token credit cap errors from OpenRouter's default 4096-token reserve checks.
-  - **Solution Code Storage & Standalone Revision Window**: Enabled saving solution code (C++, Python, Java, JS, Go) and custom test cases in MongoDB (`Question.js`). Added a syntax-highlighted code viewer overlay modal (`CodeViewerModal`) with one-click code copy and popout `New Window` button for dedicated dual-screen revision.
-  - **Interactive Coding Space & AI Compiler/Grader**: Built `CodePlaygroundModal` featuring a boilerplate generator, monospace code editor, test case manager, and an AI Code Evaluator (`/api/ai/grade-code`). Simulates compiler execution, evaluates test cases step-by-step, computes Big-O Time & Auxiliary Space complexities, and delivers line-by-line debugging feedback.
+  - **Problem URL Context in AI Prompt & UI**: Optional LeetCode link is now passed directly into AI classification & grading prompts.
+  - **Initial Revision Schedule Offset**: Newly logged questions automatically schedule 1 day into the future (tomorrow).
+  - **User-Approach First AI Classification & Enhancement**: System prompt treats student raw notes as source of truth.
+  - **Left Sidebar Hierarchical Accordion**: Two-tiered taxonomy system (Topics -> Subtopics).
+  - **Graft AI Agent Integration**: Knowledge graph mappings in `graft/`.
+  - **NVIDIA Nemotron LLM & Token Cap Optimization**: Configured `maxTokens: 1000` for OpenRouter models.
+  - **Solution Code Storage & Standalone Revision Window**: Save solution code with `CodeViewerModal` & popout windows.
+  - **Interactive Coding Space & AI Compiler/Grader**: `CodePlaygroundModal` for step-by-step test execution & Big-O complexity feedback.
+  - **Visual UI Refinement & Readme Alignment**: Aligned frontend strictly with visual documentation images.
+- **Phase 7: Difficulty Scaling & Workload Management** (Current):
+  - **Question Difficulty Schema & Classification**: Enhanced `Question` schema, AI classification schema, and controllers to support `difficulty` (`Easy`, `Medium`, `Hard`).
+  - **Priority-Based Dynamic Workload Rescheduling**: Implemented `getPriorityScore` in `questionController.js` weighting difficulty multipliers, overdue days, and student competence.
+  - **User-Defined Daily Revision Workload Limit**: Added UI selector (`2`, `3`, `5`, `10`, `Unlimited` problems/day) persisting in `localStorage`. Overdue questions exceeding daily capacity are automatically rescheduled across future days based on priority urgency to prevent revision burnout.
+  - **Dynamic Difficulty Pill Badges & Form Controls**: Added difficulty selection pills in the Log Question form and high-contrast color badges (`Easy` green, `Medium` amber, `Hard` rose) across question cards.
 
 ## Next Logical Steps
-1. Add `react-markdown` to render the AI Enhanced Notes with full formatting and code syntax highlighting.
+1. Add `react-markdown` and `react-syntax-highlighter` to render AI Enhanced Notes with code blocks.
 2. 3D Knowledge Graph (`react-force-graph`) to visualize pattern dependencies.
 
 ## Key Decisions
 - Shifted away from standard self-reported flashcard mechanics. By forcing the user to type out the logic in Natural Language and having a friendly AI grade it, we eliminate the "illusion of competence".
+- Non-Destructive Daily Revision Slicing: The daily revision limit acts as a dynamic priority-weighted filter (`questions.slice(0, limit)`) on due items without mutating `nextReviewDate` in MongoDB. This ensures that adjusting the daily limit (decreasing or increasing back up) dynamically shows or hides due items without permanently postponing them.

@@ -4,7 +4,7 @@ import Pattern from '../models/Pattern.js';
 // CREATE Question
 export const addQuestion = async (req, res) => {
   try {
-    const { title, url, notes, enhancedNotes, topic, subtopic, patternNames, code, codeLanguage, testCases } = req.body;
+    const { title, url, notes, enhancedNotes, topic, subtopic, difficulty, patternNames, code, codeLanguage, testCases } = req.body;
     
     // Find or create patterns
     const patternIds = [];
@@ -29,6 +29,7 @@ export const addQuestion = async (req, res) => {
       enhancedNotes,
       topic: topic || 'General',
       subtopic: subtopic || 'General',
+      difficulty: ['Easy', 'Medium', 'Hard'].includes(difficulty) ? difficulty : 'Medium',
       patterns: patternIds,
       code: code || '',
       codeLanguage: codeLanguage || 'cpp',
@@ -43,13 +44,34 @@ export const addQuestion = async (req, res) => {
   }
 };
 
-// GET Questions Due for Review Today
+// GET Questions Due for Review Today (with Intelligent Workload Balancing & Daily Revision Limit)
 export const getDueQuestions = async (req, res) => {
   try {
     const today = new Date();
-    const questions = await Question.find({
+    const limit = parseInt(req.query.limit) || 0; // 0 or undefined = unlimited
+
+    let questions = await Question.find({
       nextReviewDate: { $lte: today }
     }).populate('patterns');
+
+    // Priority Score Calculation Function based on Difficulty, Student Level, and Solve Date
+    const getPriorityScore = (q) => {
+      const difficultyMultiplier = { 'Hard': 3, 'Medium': 2, 'Easy': 1 }[q.difficulty || 'Medium'] || 2;
+      const daysOverdue = Math.max(0, (today - new Date(q.nextReviewDate)) / (1000 * 60 * 60 * 24));
+      const daysSinceSolved = (today - new Date(q.createdAt || Date.now())) / (1000 * 60 * 60 * 24);
+      // Student level on this problem (lower repetitions/ease = lower student level = HIGHER urgency to review)
+      const studentLevel = (q.repetitions || 0) * (q.easeFactor || 2.5);
+
+      return (difficultyMultiplier * 10) + (daysOverdue * 5) + (daysSinceSolved * 2) - (studentLevel * 3);
+    };
+
+    // Sort questions by Priority Score descending (highest priority stays first)
+    questions.sort((a, b) => getPriorityScore(b) - getPriorityScore(a));
+
+    // If a daily limit is set, return the top priority questions up to the limit without mutating DB
+    if (limit > 0 && questions.length > limit) {
+      return res.json(questions.slice(0, limit));
+    }
     
     res.json(questions);
   } catch (error) {
@@ -140,11 +162,11 @@ export const deleteQuestion = async (req, res) => {
   }
 };
 
-// UPDATE Question (Code, Notes, Test Cases, Language)
+// UPDATE Question (Code, Notes, Test Cases, Language, Difficulty)
 export const updateQuestion = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, url, notes, enhancedNotes, topic, subtopic, code, codeLanguage, testCases } = req.body;
+    const { title, url, notes, enhancedNotes, topic, subtopic, difficulty, code, codeLanguage, testCases } = req.body;
 
     const updateFields = {};
     if (title !== undefined) updateFields.title = title;
@@ -153,6 +175,7 @@ export const updateQuestion = async (req, res) => {
     if (enhancedNotes !== undefined) updateFields.enhancedNotes = enhancedNotes;
     if (topic !== undefined) updateFields.topic = topic;
     if (subtopic !== undefined) updateFields.subtopic = subtopic;
+    if (difficulty !== undefined && ['Easy', 'Medium', 'Hard'].includes(difficulty)) updateFields.difficulty = difficulty;
     if (code !== undefined) updateFields.code = code;
     if (codeLanguage !== undefined) updateFields.codeLanguage = codeLanguage;
     if (testCases !== undefined) updateFields.testCases = testCases;

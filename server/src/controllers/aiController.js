@@ -9,6 +9,7 @@ export const classifyPattern = async (req, res) => {
     const patternSchema = z.object({
       topic: z.string().describe("The primary Core Data Structure or Topic category (e.g. 'Stack', 'Queue', 'Array & Two Pointers', 'Tree & Graph', 'Dynamic Programming', 'Heap / Priority Queue', 'String', 'Linked List'). Keep Stacks and Queues strictly distinct!"),
       subtopic: z.string().describe("The specific subtopic / pattern technique (e.g. 'Monotonic Stack', 'Index / Width Calculation', 'Monotonic Queue', 'Sliding Window', 'Parentheses Matching')."),
+      difficulty: z.enum(['Easy', 'Medium', 'Hard']).describe("The estimated LeetCode problem difficulty level based on problem complexity and notes."),
       patterns: z.array(z.string()).describe("A list of algorithmic patterns (e.g., 'Monotonic Stack', 'Sliding Window') identified from the notes."),
       enhancedNotes: z.string().describe("Clean, highly readable, structured revision notes formatted with bulleted points and spaced paragraphs."),
     });

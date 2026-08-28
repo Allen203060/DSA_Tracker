@@ -23,6 +23,9 @@ const questionSchema = new mongoose.Schema({
   // Hierarchical categorization: Topic (e.g. Stack) & Subtopic (e.g. Monotonic Stack, Index/Width Calc)
   topic: { type: String, default: 'General', trim: true },
   subtopic: { type: String, default: 'General', trim: true },
+  
+  // Algorithmic Difficulty: Easy, Medium, Hard
+  difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard'], default: 'Medium', trim: true },
 
   // The patterns applied in this question (can be auto-populated by LangChain)
   patterns: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Pattern' }],
