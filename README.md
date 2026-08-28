@@ -64,9 +64,9 @@ Rather than relying on passive flashcards or subjective self-reporting, DSA Trac
 ## 🚀 Getting Started & Installation
 
 ### Prerequisites
-* [Docker](https://www.docker.com/get-started) & Docker Compose
-* Node.js v18+ (for local non-docker development)
-* An [OpenRouter API Key](https://openrouter.ai/) (required for AI grading & classification features)
+* Node.js v18+ (Required)
+* An [OpenRouter API Key](https://openrouter.ai/) (Required for AI grading & classification features)
+* [Docker](https://www.docker.com/get-started) (Optional, for containerized deployment)
 
 ---
 
@@ -79,23 +79,45 @@ Rather than relying on passive flashcards or subjective self-reporting, DSA Trac
    ```
 
 2. **Configure Environment Variables:**
-   Create a `.env` file in the `server/` directory:
-   ```env
-   PORT=5000
-   OPENROUTER_API_KEY=your_openrouter_api_key_here
-   OPENROUTER_MODEL=nvidia/nemotron-3.5-lightning
+   Copy the example environment file in the `server/` directory:
+   ```bash
+   cp server/.env.example server/.env
+   ```
+   Open `server/.env` and paste your OpenRouter API Key. If you are NOT using Docker, you will also need to update the `MONGODB_URI` (see below).
+
+---
+
+### Option A: Local Development (Without Docker) - 🚀 Recommended for Contributing
+If you want to contribute to the code without installing Docker, you can run the entire stack with a single command!
+
+1. **Set up a Free Cloud Database (MongoDB Atlas)**:
+   * Go to [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register) and create a free cluster.
+   * Click "Connect" -> "Connect your application" and copy the connection string.
+   * Paste it into your `server/.env` file: `MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/dsa_tracker`
+
+2. **Install all dependencies:**
+   From the root of the project, run:
+   ```bash
+   npm run install:all
    ```
 
-3. **Run with Docker Compose (Recommended):**
-   Spin up MongoDB, Node.js backend server, and React client simultaneously:
+3. **Run the App (One Command!):**
+   ```bash
+   npm run dev
+   ```
+   This uses `concurrently` to boot up both the Vite frontend (`http://localhost:5173`) and the Express backend (`http://localhost:5000`) in the same terminal window!
+
+---
+
+### Option B: Run with Docker Compose
+If you just want to run the app without setting up MongoDB Atlas, Docker will spin up a local MongoDB container automatically.
+
+1. Keep `MONGODB_URI=mongodb://mongo:27017/dsa_tracker` in your `server/.env` file.
+2. Spin up the containers:
    ```bash
    docker-compose up --build
    ```
-
-4. **Access the Application:**
-   * **Client (Frontend)**: [http://localhost:5173](http://localhost:5173)
-   * **Server API**: [http://localhost:5000](http://localhost:5000)
-   * **MongoDB**: Exposed on port `27017`
+3. The app is now live at `http://localhost:5173`.
 
 ---
 
@@ -103,10 +125,19 @@ Rather than relying on passive flashcards or subjective self-reporting, DSA Trac
 
 This project is indexed with **Graft** (`@nanonets/graft`). It creates small linked markdown nodes representing every file, symbol, and API surface in `graft/`, providing coding AI agents with zero-exploration context.
 
-To rebuild the graph after structural changes:
+### Installing Graft
+To install Graft globally so you can query the knowledge graph:
 ```bash
-npx @nanonets/graft build
+npm install -g @nanonets/graft
 ```
+
+### Using Graft
+* **Orient yourself**: Run `graft map` to get a token-budgeted orientation of the directory clusters.
+* **Ask a question**: Run `graft ask "How does the SM-2 algorithm schedule questions?" --source`
+* **Rebuild the graph**: If you add new files or make major structural changes, rebuild the graph:
+  ```bash
+  npx @nanonets/graft build
+  ```
 
 ---
 
