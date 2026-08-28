@@ -5,5 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     setupFiles: ['./tests/setup.js'],
+    hookTimeout: 120000, // 2 minutes to allow initial Mongo binary download on slow connections
+    testTimeout: 30000,
   },
 });
