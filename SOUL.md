@@ -29,6 +29,8 @@
   - **Priority-Based Dynamic Workload Rescheduling**: Implemented `getPriorityScore` in `questionController.js` weighting difficulty multipliers, overdue days, and student competence.
   - **User-Defined Daily Revision Workload Limit**: Added UI selector (`2`, `3`, `5`, `10`, `Unlimited` problems/day) persisting in `localStorage`. Overdue questions exceeding daily capacity are automatically rescheduled across future days based on priority urgency to prevent revision burnout.
   - **Dynamic Difficulty Pill Badges & Form Controls**: Added difficulty selection pills in the Log Question form and high-contrast color badges (`Easy` green, `Medium` amber, `Hard` rose) across question cards.
+  - **Dynamic Daily Revision Quota Deduction**: Deducts reviews completed today from the daily limit (`remainingLimit = limit - reviewsCompletedToday`), ensuring that if you complete 2 out of 3 daily reviews, exactly 1 question remains in your queue.
+  - **Random Question Practice Mode**: Added a dedicated `Practice Mode (Random Question)` trigger in the Header, empty due queue state, and Playground modal (`GET /api/questions/random`), allowing practice on solved questions anytime.
 
 ## Next Logical Steps
 1. Add `react-markdown` and `react-syntax-highlighter` to render AI Enhanced Notes with code blocks.
@@ -36,4 +38,4 @@
 
 ## Key Decisions
 - Shifted away from standard self-reported flashcard mechanics. By forcing the user to type out the logic in Natural Language and having a friendly AI grade it, we eliminate the "illusion of competence".
-- Non-Destructive Daily Revision Slicing: The daily revision limit acts as a dynamic priority-weighted filter (`questions.slice(0, limit)`) on due items without mutating `nextReviewDate` in MongoDB. This ensures that adjusting the daily limit (decreasing or increasing back up) dynamically shows or hides due items without permanently postponing them.
+- Non-Destructive Daily Revision Slicing with Today's Review Deduction: The daily limit dynamically factors in `reviewsCompletedToday` (`countDocuments({ 'reviewHistory.reviewedAt': { $gte: startOfDay } })`), ensuring a zero-inbox experience where completed questions decrease the active due count down to 0 for the day.
