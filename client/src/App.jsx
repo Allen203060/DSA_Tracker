@@ -480,6 +480,23 @@ function App() {
     fetchActivityStats();
   };
 
+  const handleRandomPractice = async () => {
+    try {
+      const res = await axios.get('/api/questions/random');
+      if (res.data) {
+        openPlayground(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch random question", err);
+      if (allQuestions.length > 0) {
+        const randomQ = allQuestions[Math.floor(Math.random() * allQuestions.length)];
+        openPlayground(randomQ);
+      } else {
+        alert("No questions logged yet! Log some questions first to start Practice Mode.");
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0b0e17] text-gray-100 p-4 md:p-8 font-sans selection:bg-brand-500 selection:text-white max-w-[1500px] mx-auto">
       
@@ -493,6 +510,15 @@ function App() {
             DSA Tracker
           </h1>
         </div>
+
+        <button
+          onClick={handleRandomPractice}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs rounded-xl shadow-[0_0_20px_rgba(147,51,234,0.3)] transition-all transform hover:scale-105 active:scale-95 border border-purple-400/30"
+          title="Open a completely random question from your solved collection for practice"
+        >
+          <Sparkles className="w-4 h-4 text-purple-200 animate-pulse" />
+          Practice Mode (Random Question)
+        </button>
       </header>
 
       {/* LEETCODE STYLE PROGRESS & ACTIVITY DASHBOARD */}
@@ -942,10 +968,20 @@ function App() {
             </div>
 
             {displayedQuestions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-gray-500 border border-dashed border-white/10 rounded-2xl p-6 text-center">
-                <CheckCircle2 className="w-12 h-12 mb-3 text-emerald-500/40" />
-                <p className="text-sm font-medium text-gray-400">No questions found in this view.</p>
-                <p className="text-xs text-gray-600 mt-1">Log a new question or clear active topic filters from the sidebar.</p>
+              <div className="flex flex-col items-center justify-center h-64 text-gray-500 border border-dashed border-white/10 rounded-2xl p-6 text-center bg-[#141826]/40">
+                <CheckCircle2 className="w-12 h-12 mb-3 text-emerald-400" />
+                <p className="text-base font-bold text-white mb-1">
+                  {viewMode === 'due' && dailyRevisionLimit > 0 ? `🎉 All ${dailyRevisionLimit} daily target revision(s) completed!` : "No questions found in this view."}
+                </p>
+                <p className="text-xs text-gray-400 max-w-sm mb-4">
+                  {viewMode === 'due' ? "Awesome job staying consistent today! Want to practice random solved questions anyway?" : "Log a new question or clear active topic filters from the sidebar."}
+                </p>
+                <button
+                  onClick={handleRandomPractice}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs rounded-xl shadow-[0_0_15px_rgba(147,51,234,0.3)] transition-all transform hover:scale-105 active:scale-95"
+                >
+                  <Sparkles className="w-4 h-4 text-purple-200 animate-pulse" /> Start Practice Mode (Random Question)
+                </button>
               </div>
             ) : (
               /* 2-COLUMN PROBLEM CARDS GRID MATCHING DASHBOARD.PNG */
@@ -1226,9 +1262,14 @@ function App() {
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="text-xs px-3 py-1 bg-emerald-500/20 text-emerald-400 font-mono font-semibold rounded-full border border-emerald-500/30">
-                  O(N) Complexity | PASSED
-                </span>
+                <button
+                  onClick={handleRandomPractice}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 rounded-xl text-xs font-semibold transition-all"
+                  title="Switch to another random solved question"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-purple-300" />
+                  Next Random Question
+                </button>
 
                 <button onClick={() => setPlaygroundQuestion(null)} className="p-1.5 bg-[#1f2937] hover:bg-[#374151] text-gray-300 rounded-lg">
                   <X className="w-4 h-4" />

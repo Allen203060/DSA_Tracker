@@ -91,4 +91,13 @@ describe('Question API Endpoints', () => {
     const dueAfter = await request(app).get('/api/questions/due');
     expect(dueAfter.body.some(item => item._id === q._id.toString())).toBe(false);
   });
+
+  it('should fetch a random question for Practice Mode', async () => {
+    await Question.create({ title: 'Random Solved Problem 1', notes: 'Notes 1' });
+    await Question.create({ title: 'Random Solved Problem 2', notes: 'Notes 2' });
+
+    const res = await request(app).get('/api/questions/random');
+    expect(res.status).toBe(200);
+    expect(['Random Solved Problem 1', 'Random Solved Problem 2']).toContain(res.body.title);
+  });
 });

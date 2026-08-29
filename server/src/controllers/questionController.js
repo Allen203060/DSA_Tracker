@@ -68,12 +68,35 @@ export const getDueQuestions = async (req, res) => {
     // Sort questions by Priority Score descending (highest priority stays first)
     questions.sort((a, b) => getPriorityScore(b) - getPriorityScore(a));
 
-    // If a daily limit is set, return the top priority questions up to the limit without mutating DB
-    if (limit > 0 && questions.length > limit) {
-      return res.json(questions.slice(0, limit));
+    // If a daily limit is set, subtract reviews completed today to calculate exact remaining quota
+    if (limit > 0) {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const reviewsCompletedToday = await Question.countDocuments({
+        'reviewHistory.reviewedAt': { $gte: startOfDay }
+      });
+
+      const remainingLimit = Math.max(0, limit - reviewsCompletedToday);
+      return res.json(questions.slice(0, remainingLimit));
     }
     
     res.json(questions);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// GET a Random Solved Question for Practice Mode
+export const getRandomQuestion = async (req, res) => {
+  try {
+    const count = await Question.countDocuments();
+    if (count === 0) return res.status(404).json({ message: "No questions logged yet" });
+
+    const randomIndex = Math.floor(Math.random() * count);
+    const randomQuestion = await Question.findOne().skip(randomIndex).populate('patterns');
+
+    res.json(randomQuestion);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

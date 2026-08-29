@@ -1,5 +1,5 @@
 import express from 'express';
-import { addQuestion, getDueQuestions, reviewQuestion, getAllQuestions, deleteQuestion, updateQuestion, getActivityStats } from '../controllers/questionController.js';
+import { addQuestion, getDueQuestions, reviewQuestion, getAllQuestions, deleteQuestion, updateQuestion, getActivityStats, getRandomQuestion } from '../controllers/questionController.js';
 import { classifyPattern, gradeRecall, gradeCode, generateBoilerplate } from '../controllers/aiController.js';
 
 const router = express.Router();
@@ -7,6 +7,7 @@ const router = express.Router();
 router.post('/questions', addQuestion);
 router.get('/questions', getAllQuestions);
 router.get('/questions/due', getDueQuestions);
+router.get('/questions/random', getRandomQuestion);
 router.put('/questions/:id', updateQuestion);
 router.post('/questions/:id/review', reviewQuestion);
 router.delete('/questions/:id', deleteQuestion);
