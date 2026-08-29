@@ -450,11 +450,20 @@ function App() {
       
       const { score, feedback } = gradeRes.data;
       
-      await axios.post(`/api/questions/${reviewingQuestion._id}/review`, {
+      const reviewRes = await axios.post(`/api/questions/${reviewingQuestion._id}/review`, {
         quality: score
       });
       
-      setGradeResult({ score, feedback });
+      setGradeResult({ 
+        score, 
+        feedback,
+        interval: reviewRes.data?.interval || 1,
+        nextReviewDate: reviewRes.data?.nextReviewDate
+      });
+
+      // Refetch questions and activity stats so the question is removed from the due queue immediately
+      fetchQuestions();
+      fetchActivityStats();
     } catch (error) {
       console.error("Failed to grade", error);
       alert("Error grading recall");
@@ -467,6 +476,8 @@ function App() {
     setReviewingQuestion(null);
     setRecallText('');
     setGradeResult(null);
+    fetchQuestions();
+    fetchActivityStats();
   };
 
   return (
@@ -1387,9 +1398,14 @@ function App() {
               </>
             ) : (
               <div className="space-y-6 mt-4">
-                <div className="p-6 rounded-2xl bg-[#141826] border border-white/10 text-center">
+                <div className="p-6 rounded-2xl bg-[#141826] border border-white/10 text-center relative overflow-hidden">
                   <div className="text-5xl font-bold text-purple-400 mb-2">{gradeResult.score} <span className="text-2xl text-gray-500">/ 5</span></div>
-                  <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold">SM-2 Spaced Repetition Score</p>
+                  <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold mb-3">SM-2 Spaced Repetition Score</p>
+                  
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium rounded-full">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Rescheduled: Next due in {gradeResult.interval || 1} day{gradeResult.interval > 1 ? 's' : ''} (Removed from daily queue)
+                  </div>
                 </div>
                 
                 <div>

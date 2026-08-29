@@ -59,4 +59,36 @@ describe('Question API Endpoints', () => {
     const deleted = await Question.findById(q._id);
     expect(deleted).toBeNull();
   });
+
+  it('should review a question and reschedule it out of the due queue', async () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // Create a question that is currently due (nextReviewDate in the past)
+    const q = await Question.create({
+      title: 'Due Question',
+      notes: 'Notes',
+      nextReviewDate: yesterday
+    });
+
+    // Confirm it appears in getDueQuestions
+    const dueBefore = await request(app).get('/api/questions/due');
+    expect(dueBefore.body.some(item => item._id === q._id.toString())).toBe(true);
+
+    // Submit AI review score (e.g. quality score = 4 out of 5)
+    const reviewRes = await request(app)
+      .post(`/api/questions/${q._id}/review`)
+      .send({ quality: 4 });
+
+    expect(reviewRes.status).toBe(200);
+    expect(reviewRes.body.interval).toBe(1);
+
+    // Verify nextReviewDate is moved into the future
+    const nextReview = new Date(reviewRes.body.nextReviewDate);
+    expect(nextReview.getTime()).toBeGreaterThan(Date.now());
+
+    // Confirm it is now removed from the due queue
+    const dueAfter = await request(app).get('/api/questions/due');
+    expect(dueAfter.body.some(item => item._id === q._id.toString())).toBe(false);
+  });
 });
