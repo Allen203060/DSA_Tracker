@@ -1,11 +1,12 @@
 import { ChatOpenRouter } from "@langchain/openrouter";
 import { z } from "zod";
 
+const DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct";
+
 export const classifyPattern = async (req, res) => {
   const { title, url, notes } = req.body;
 
   try {
-    // 1. Define the exact JSON structure we want back from the LLM using Zod
     const patternSchema = z.object({
       topic: z.string().describe("The primary Core Data Structure or Topic category (e.g. 'Stack', 'Queue', 'Array & Two Pointers', 'Tree & Graph', 'Dynamic Programming', 'Heap / Priority Queue', 'String', 'Linked List'). Keep Stacks and Queues strictly distinct!"),
       subtopic: z.string().describe("The specific subtopic / pattern technique (e.g. 'Monotonic Stack', 'Index / Width Calculation', 'Monotonic Queue', 'Sliding Window', 'Parentheses Matching')."),
@@ -14,18 +15,13 @@ export const classifyPattern = async (req, res) => {
       enhancedNotes: z.string().describe("Clean, highly readable, structured revision notes formatted with bulleted points and spaced paragraphs."),
     });
 
-    // 2. Initialize the OpenRouter Chat Model with NVIDIA Nemotron model & maxTokens limit
-    const modelName = process.env.OPENROUTER_MODEL || "nvidia/nemotron-3.5-lightning";
+    const modelName = process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
     const llm = new ChatOpenRouter({
       model: modelName, 
       temperature: 0,
-      maxTokens: 1000, 
-    }).withStructuredOutput(patternSchema, {
-      name: "extract_patterns",
-      strict: true,
-    });
+      maxTokens: 2000, 
+    }).withStructuredOutput(patternSchema);
 
-    // 3. Craft the prompt with strict focus on student's actual approach
     const prompt = `
       You are an expert algorithms instructor and code reviewer.
       Given the following problem title, optional problem URL, and a student's raw notes:
@@ -51,12 +47,10 @@ export const classifyPattern = async (req, res) => {
         - ⚠️ Edge Cases & Gotchas
     `;
 
-    // 4. Invoke the model
     const response = await llm.invoke([{ role: "user", content: prompt }]);
-    
-    // response is guaranteed to match patternSchema
     res.json(response);
   } catch (error) {
+    console.error("classifyPattern Error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -65,21 +59,17 @@ export const gradeRecall = async (req, res) => {
   const { originalNotes, userRecall, title, url } = req.body;
 
   try {
-    // 1. Define strict JSON output for grading
     const gradingSchema = z.object({
       score: z.number().min(0).max(5).describe("A score from 0 to 5 representing recall accuracy."),
       feedback: z.string().describe("1-2 sentences of constructive feedback pointing out what they missed or praising their accuracy."),
     });
 
-    const modelName = process.env.OPENROUTER_MODEL || "nvidia/nemotron-3.5-lightning";
+    const modelName = process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
     const llm = new ChatOpenRouter({
       model: modelName, 
       temperature: 0,
       maxTokens: 1000,
-    }).withStructuredOutput(gradingSchema, {
-      name: "grade_recall",
-      strict: true,
-    });
+    }).withStructuredOutput(gradingSchema);
 
     const prompt = `
       You are a super chill, friendly, and encouraging AI study buddy helping your friend practice Data Structures and Algorithms. 
@@ -109,6 +99,7 @@ export const gradeRecall = async (req, res) => {
     const response = await llm.invoke([{ role: "user", content: prompt }]);
     res.json(response);
   } catch (error) {
+    console.error("gradeRecall Error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -133,15 +124,12 @@ export const gradeCode = async (req, res) => {
       feedback: z.string().describe("Formatted code review breakdown detailing key strengths, potential bugs, edge cases, and optimization tips.")
     });
 
-    const modelName = process.env.OPENROUTER_MODEL || "nvidia/nemotron-3.5-lightning";
+    const modelName = process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
     const llm = new ChatOpenRouter({
       model: modelName,
       temperature: 0,
-      maxTokens: 1500,
-    }).withStructuredOutput(codeGradingSchema, {
-      name: "grade_code",
-      strict: true,
-    });
+      maxTokens: 2000,
+    }).withStructuredOutput(codeGradingSchema);
 
     const formattedTestCases = Array.isArray(testCases) && testCases.length > 0
       ? testCases.map((tc, idx) => `Test Case ${idx + 1}:\n  Input: ${tc.input || 'Default'}\n  Expected Output: ${tc.expectedOutput || 'Default'}`).join('\n\n')
@@ -174,6 +162,7 @@ export const gradeCode = async (req, res) => {
     const response = await llm.invoke([{ role: "user", content: prompt }]);
     res.json(response);
   } catch (error) {
+    console.error("gradeCode Error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -186,15 +175,12 @@ export const generateBoilerplate = async (req, res) => {
       boilerplate: z.string().describe("The exact starting boilerplate code for the given language. Should look exactly like a LeetCode starting template.")
     });
 
-    const modelName = process.env.OPENROUTER_MODEL || "nvidia/nemotron-3.5-lightning";
+    const modelName = process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
     const llm = new ChatOpenRouter({
       model: modelName,
       temperature: 0,
-      maxTokens: 500,
-    }).withStructuredOutput(boilerplateSchema, {
-      name: "generate_boilerplate",
-      strict: true,
-    });
+      maxTokens: 1000,
+    }).withStructuredOutput(boilerplateSchema);
 
     const prompt = `
       You are an expert DSA platform engineer. 
@@ -215,6 +201,7 @@ export const generateBoilerplate = async (req, res) => {
     const response = await llm.invoke([{ role: "user", content: prompt }]);
     res.json(response);
   } catch (error) {
+    console.error("generateBoilerplate Error:", error);
     res.status(500).json({ error: error.message });
   }
 };
