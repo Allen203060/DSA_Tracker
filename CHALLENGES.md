@@ -58,3 +58,15 @@ Removed DB date mutations inside `getDueQuestions`. The daily revision limit now
 **Key Takeaway:**
 Filtering parameters in GET requests must be non-destructive views. Never mutate core domain model schedules inside query endpoints.
 
+## Challenge 7: OpenRouter AI Request Hanging & Reasoning Token Truncation
+**The Problem:**
+When logging a question, the UI loading bar stayed stuck on `"AI is analyzing your approach..."` indefinitely, failing to create the problem or extract patterns.
+**Root Cause:**
+1. `process.env.OPENROUTER_MODEL` was configured to `nvidia/nemotron-3.5-lightning`. On OpenRouter, reasoning models spend 900+ tokens on internal reasoning (`reasoning_tokens`). Because `maxTokens: 1000` was hardcoded, the output tokens exceeded the token limit and truncated the JSON response (`Unexpected end of JSON input`), causing HTTP requests to hang or fail.
+2. Passing `{ strict: true }` in `withStructuredOutput` caused OpenRouter parameter mismatches on non-OpenAI model endpoints.
+**Solution:**
+1. Switched `OPENROUTER_MODEL` to `meta-llama/llama-3.3-70b-instruct`, a non-reasoning LLM that returns clean, structured outputs in **1.5 seconds**.
+2. Increased `maxTokens` to `2000` and removed `{ strict: true }` from `withStructuredOutput` calls.
+**Key Takeaway (Interview Insight):**
+When using reasoning models (like DeepSeek-R1 or Nemotron 3.5), account for reasoning token overhead when setting `maxTokens`. For structured JSON output, non-reasoning models (like Llama 3.3 70B or GPT-4o-mini) provide vastly superior latency (<1.5s) and reliability.
+
