@@ -6,6 +6,7 @@ import {
   ChevronRight, Flame, Trophy, Activity, Code, Play, Copy, Check, 
   Maximize2, FileCode, Plus, RotateCcw, Sparkles, Cpu, CheckCircle, XCircle, Edit3, Save 
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 function App() {
   const [questions, setQuestions] = useState([]);
@@ -1129,8 +1130,24 @@ function App() {
                               {q.notes}
                             </div>
                           ) : (
-                            <div className="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed space-y-2 font-sans">
-                              {q.enhancedNotes || "No enhanced notes available."}
+                            <div className="text-xs text-gray-200 leading-relaxed font-sans bg-[#141826]/90 p-4 rounded-xl border border-purple-500/20 shadow-inner">
+                              <ReactMarkdown
+                                components={{
+                                  h3: ({ node, ...props }) => <h3 className="text-xs font-bold text-purple-300 mt-3 mb-1.5 flex items-center gap-1.5 border-b border-purple-500/20 pb-1 uppercase tracking-wider" {...props} />,
+                                  p: ({ node, ...props }) => <p className="mb-2 text-gray-300 leading-relaxed" {...props} />,
+                                  ul: ({ node, ...props }) => <ul className="list-disc list-inside space-y-1 my-2 text-gray-300 pl-1" {...props} />,
+                                  li: ({ node, ...props }) => <li className="text-gray-300" {...props} />,
+                                  strong: ({ node, ...props }) => <strong className="font-semibold text-purple-200" {...props} />,
+                                  code: ({ node, inline, ...props }) => 
+                                    inline ? (
+                                      <code className="bg-purple-950/60 text-purple-300 px-1.5 py-0.5 rounded font-mono text-[11px] border border-purple-500/30" {...props} />
+                                    ) : (
+                                      <code className="block bg-[#0b0e17] text-emerald-300 p-3 rounded-lg font-mono text-[11px] my-2.5 overflow-x-auto border border-white/10" {...props} />
+                                    )
+                                }}
+                              >
+                                {q.enhancedNotes || "No enhanced notes available."}
+                              </ReactMarkdown>
                             </div>
                           )}
                         </div>

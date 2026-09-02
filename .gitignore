@@ -27,3 +27,6 @@ dist-ssr
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
+
+SOUL.md
+CHALLENGES.0md

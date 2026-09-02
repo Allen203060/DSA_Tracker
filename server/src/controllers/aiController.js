@@ -12,7 +12,7 @@ export const classifyPattern = async (req, res) => {
       subtopic: z.string().describe("The specific subtopic / pattern technique (e.g. 'Monotonic Stack', 'Index / Width Calculation', 'Monotonic Queue', 'Sliding Window', 'Parentheses Matching')."),
       difficulty: z.enum(['Easy', 'Medium', 'Hard']).describe("The estimated LeetCode problem difficulty level based on problem complexity and notes."),
       patterns: z.array(z.string()).describe("A list of algorithmic patterns (e.g., 'Monotonic Stack', 'Sliding Window') identified from the notes."),
-      enhancedNotes: z.string().describe("Clean, highly readable, structured revision notes formatted with bulleted points and spaced paragraphs."),
+      enhancedNotes: z.string().describe("Clean, highly readable, structured revision notes in rich Markdown with headers (###), bold text, bullet points (-), and inline code backticks."),
     });
 
     const modelName = process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
@@ -38,13 +38,26 @@ export const classifyPattern = async (req, res) => {
       - Examples of Queue Subtopics: 'Monotonic Queue (Sliding Window Max)', 'BFS Level Order Traversal', 'Circular Queue'.
       - Other main topics include 'Array & Two Pointers', 'Tree & Graph', 'Dynamic Programming', 'Heap / Priority Queue', etc.
 
-      CRITICAL ENHANCEMENT RULE (ENHANCE STUDENT THOUGHTS ONLY):
-      - enhancedNotes MUST BE a refined, polished, and beautifully structured version of THE STUDENT'S EXPLICIT APPROACH.
+      CRITICAL ENHANCEMENT RULE (PROPER MARKDOWN STRUCTURE):
+      - enhancedNotes MUST BE a refined, polished, and beautifully structured version of THE STUDENT'S EXPLICIT APPROACH formatted in clean Markdown.
       - DO NOT substitute or introduce a different solution/algorithm that the student did not write about.
-      - Take their raw intuition, aha-moments, and code logic, and structure them with emojis, clear bullet points (-), and spaced paragraphs:
-        - 💡 Core Intuition (from student's approach)
-        - 🛠️ Algorithm Steps & Logic Breakdown
-        - ⚠️ Edge Cases & Gotchas
+      - Format enhancedNotes strictly using the following Markdown sections:
+
+        ### 💡 Core Intuition
+        (Explain the student's aha-moment and core approach in clear, concise language)
+
+        ### 🛠️ Algorithm & Key Steps
+        - **Step 1:** (First step / initialization)
+        - **Step 2:** (Main loop / stack logic / recursion)
+        - **Step 3:** (Final condition / return value)
+
+        ### ⚠️ Edge Cases & Boundary Conditions
+        - **Edge Case 1:** (e.g. Empty array / single element)
+        - **Edge Case 2:** (e.g. Duplicate elements / negative numbers)
+
+        ### ⏱️ Complexity Analysis
+        - **Time Complexity:** O(...) - (Brief explanation)
+        - **Space Complexity:** O(...) - (Brief explanation)
     `;
 
     const response = await llm.invoke([{ role: "user", content: prompt }]);
