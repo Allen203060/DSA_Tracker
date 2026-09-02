@@ -30,11 +30,10 @@
   - **User-Defined Daily Revision Workload Limit**: Added UI selector (`2`, `3`, `5`, `10`, `Unlimited` problems/day) persisting in `localStorage`. Overdue questions exceeding daily capacity are automatically rescheduled across future days based on priority urgency to prevent revision burnout.
   - **Dynamic Difficulty Pill Badges & Form Controls**: Added difficulty selection pills in the Log Question form and high-contrast color badges (`Easy` green, `Medium` amber, `Hard` rose) across question cards.
   - **Dynamic Daily Revision Quota Deduction**: Deducts reviews completed today from the daily limit (`remainingLimit = limit - reviewsCompletedToday`), ensuring that if you complete 2 out of 3 daily reviews, exactly 1 question remains in your queue.
-  - **Random Question Practice Mode**: Added a dedicated `Practice Mode (Random Question)` trigger in the Header, empty due queue state, and Playground modal (`GET /api/questions/random`), allowing practice on solved questions anytime.
+  - **Random Question Practice Mode**: Added a dedicated `Practice Mode (Random Question)` trigger in the Header, empty due queue state, and Playground modal (`GET /api/questions/random`), allowing practice on solved questions anytime.  - **Structured Markdown AI Notes & ReactMarkdown Rendering**: Enforced strict 4-tier Markdown section schema in `aiController.js` (`Core Intuition`, `Algorithm & Key Steps`, `Edge Cases & Boundary Conditions`, `Complexity Analysis`) and integrated `react-markdown` with custom glassmorphism styling in the UI.
 
 ## Next Logical Steps
-1. Add `react-markdown` and `react-syntax-highlighter` to render AI Enhanced Notes with code blocks.
-2. 3D Knowledge Graph (`react-force-graph`) to visualize pattern dependencies.
+1. 3D Knowledge Graph (`react-force-graph`) to visualize pattern dependencies.
 
 ## Key Decisions
 - Shifted away from standard self-reported flashcard mechanics. By forcing the user to type out the logic in Natural Language and having a friendly AI grade it, we eliminate the "illusion of competence".
