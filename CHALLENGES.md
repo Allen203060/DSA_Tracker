@@ -70,3 +70,15 @@ When logging a question, the UI loading bar stayed stuck on `"AI is analyzing yo
 **Key Takeaway (Interview Insight):**
 When using reasoning models (like DeepSeek-R1 or Nemotron 3.5), account for reasoning token overhead when setting `maxTokens`. For structured JSON output, non-reasoning models (like Llama 3.3 70B or GPT-4o-mini) provide vastly superior latency (<1.5s) and reliability.
 
+## Challenge 8: Exposed `.env` File & Git History Secret Purge
+**The Problem:**
+`server/.env` containing sensitive credentials (`OPENROUTER_API_KEY`) was accidentally tracked and committed to git, then pushed to GitHub. Adding `.env` to `.gitignore` after the fact did not remove it from Git's tracking index or historical commits.
+**Root Cause:**
+1. Git ignores only untracked files. Files already in the index remain tracked even if added to `.gitignore`.
+2. Standard `git add .` and `git push` sent committed `.env` files into public GitHub repository history.
+**Solution:**
+1. Updated `.gitignore` across root, `server/`, and `client/` directories to ignore `.env`, `.env.*`, and `*.env`.
+2. Backed up local `.env` configuration, then executed `git-filter-repo --invert-paths --path server/.env --force` to purge all historical occurrences from commit logs across all branches.
+3. Restored local `.env` and performed a forced remote sync (`git push origin main --force`).
+**Key Takeaway (Interview Insight):**
+Adding a file to `.gitignore` after committing it does NOT scrub it from Git history or stop Git from tracking it. To completely remediate exposed secrets: (1) Purge the file from history using `git-filter-repo`, (2) Force push cleaned branches to remotes, and (3) Immediately rotate/revoke all exposed API keys or secrets on the service provider side.
