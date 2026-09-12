@@ -1,17 +1,32 @@
 import { useState, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import axios from 'axios';
 import { 
-  BrainCircuit, Library, Calendar, Loader2, TerminalSquare, X, CheckCircle2, List, 
-  ChevronDown, ChevronUp, Trash2, ExternalLink, Tag, Layers, Folder, 
+  BrainCircuit, Loader2, X, List, 
+  ChevronDown, ChevronUp, Trash2, ExternalLink, Layers, Folder, 
   ChevronRight, Flame, Trophy, Activity, Code, Play, Copy, Check, 
-  Maximize2, FileCode, Plus, RotateCcw, Sparkles, Cpu, CheckCircle, XCircle, Edit3, Save 
+  Plus, RotateCcw, Sparkles, CheckCircle, Edit3, Save, Sun, Moon 
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import ThreeBackground from './components/ThreeBackground';
 
 function App() {
   const [questions, setQuestions] = useState([]);
   const [allQuestions, setAllQuestions] = useState([]);
   
+  // Theme State: 'dark' (softer dark) or 'light'
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem('theme');
+      if (saved) return saved;
+      if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+    } catch (e) {}
+    return 'dark';
+  });
+  const [isThemeSpinning, setIsThemeSpinning] = useState(false);
+
   // Hierarchical Filter State
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [selectedSubtopic, setSelectedSubtopic] = useState(null);
@@ -62,12 +77,133 @@ function App() {
   const [isGeneratingBoilerplate, setIsGeneratingBoilerplate] = useState(false);
   const [codeEvaluationResult, setCodeEvaluationResult] = useState(null);
 
-  // Activity Stats State
+  // Heatmap & Learning Analytics State
   const [activityData, setActivityData] = useState({ 
     dailyActivity: {}, 
     stats: { currentStreak: 0, longestStreak: 0, totalNew: 0, totalRecalls: 0 } 
   });
   const [hoveredCell, setHoveredCell] = useState(null);
+
+  // Apply and persist theme
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    } else {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  // Noticeable radial outward circular reveal theme toggle with luminous shockwave ring
+  const toggleTheme = (e) => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+
+    // Trigger rotational micro-interaction
+    setIsThemeSpinning(true);
+    setTimeout(() => setIsThemeSpinning(false), 750);
+
+    if (
+      !document.startViewTransition || 
+      (typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+    ) {
+      setTheme(nextTheme);
+      return;
+    }
+
+    const rect = e?.currentTarget?.getBoundingClientRect();
+    const x = rect ? rect.left + rect.width / 2 : (e?.clientX ?? window.innerWidth / 2);
+    const y = rect ? rect.top + rect.height / 2 : (e?.clientY ?? 0);
+
+    const endRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y)
+    );
+
+    const root = document.documentElement;
+    root.classList.add('theme-transitioning');
+
+    // Spawn dramatic luminous shockwave ring across viewport
+    try {
+      const ripple = document.createElement('div');
+      ripple.style.position = 'fixed';
+      ripple.style.left = `${x}px`;
+      ripple.style.top = `${y}px`;
+      ripple.style.width = '0px';
+      ripple.style.height = '0px';
+      ripple.style.borderRadius = '50%';
+      ripple.style.transform = 'translate(-50%, -50%)';
+      ripple.style.pointerEvents = 'none';
+      ripple.style.zIndex = '100000';
+      ripple.style.border = nextTheme === 'dark' 
+        ? '3px solid rgba(129, 140, 248, 0.95)' 
+        : '3px solid rgba(99, 102, 241, 0.95)';
+      ripple.style.boxShadow = nextTheme === 'dark'
+        ? '0 0 60px 18px rgba(99, 102, 241, 0.8), inset 0 0 30px rgba(56, 189, 248, 0.65)'
+        : '0 0 60px 18px rgba(99, 102, 241, 0.6), inset 0 0 30px rgba(99, 102, 241, 0.4)';
+      document.body.appendChild(ripple);
+
+      const rippleAnim = ripple.animate(
+        [
+          { width: '0px', height: '0px', opacity: 1 },
+          { width: `${endRadius * 2.15}px`, height: `${endRadius * 2.15}px`, opacity: 0 }
+        ],
+        {
+          duration: 720,
+          easing: 'cubic-bezier(0.18, 1, 0.22, 1)'
+        }
+      );
+      rippleAnim.onfinish = () => ripple.remove();
+      rippleAnim.oncancel = () => ripple.remove();
+    } catch {
+      // Graceful fallback if DOM measurement fails
+    }
+
+    const transition = document.startViewTransition(() => {
+      flushSync(() => {
+        setTheme(nextTheme);
+        if (nextTheme === 'dark') {
+          root.classList.add('dark');
+          root.classList.remove('light');
+        } else {
+          root.classList.add('light');
+          root.classList.remove('dark');
+        }
+        try {
+          localStorage.setItem('theme', nextTheme);
+        } catch {
+          // ignore
+        }
+      });
+    });
+
+    transition.ready.then(() => {
+      const animation = root.animate(
+        {
+          clipPath: [
+            `circle(0px at ${x}px ${y}px)`,
+            `circle(${endRadius}px at ${x}px ${y}px)`
+          ]
+        },
+        {
+          duration: 720,
+          easing: 'cubic-bezier(0.18, 1, 0.22, 1)',
+          pseudoElement: '::view-transition-new(root)'
+        }
+      );
+
+      const cleanup = () => {
+        root.classList.remove('theme-transitioning');
+      };
+
+      animation.onfinish = cleanup;
+      animation.oncancel = cleanup;
+    }).catch(() => {
+      root.classList.remove('theme-transitioning');
+    });
+  };
 
   const fetchQuestions = async () => {
     try {
@@ -94,6 +230,19 @@ function App() {
     fetchActivityStats();
   }, [viewMode, dailyRevisionLimit]);
 
+  // Global Escape key listener to close active modals
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (playgroundQuestion) setPlaygroundQuestion(null);
+        if (viewingCodeQuestion) setViewingCodeQuestion(null);
+        if (reviewingQuestion) closeReview();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [playgroundQuestion, viewingCodeQuestion, reviewingQuestion]);
+
   // Starter Boilerplate Code Templates
   const getStarterTemplate = (lang, titleStr) => {
     const pTitle = titleStr || 'Problem';
@@ -115,21 +264,21 @@ function App() {
 
   // Popout Code in New Window
   const openCodeInNewWindow = (question) => {
-    const win = window.open('', '_blank', 'width=850,height=650,scrollbars=yes,resizable=yes');
-    if (!win) return alert("Popup blocked! Please allow popups to open code windows.");
+    const win = window.open('', '_blank', 'width=880,height=680,scrollbars=yes,resizable=yes');
+    if (!win) return alert("Popup blocked! Please allow popups to open standalone code windows.");
     
     const codeHtml = `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>${question.title} - Solution Code</title>
+        <title>${question.title} — Solution</title>
         <style>
-          body { background: #0b0f19; color: #f3f4f6; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; padding: 24px; margin: 0; }
-          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 16px; margin-bottom: 20px; }
-          .title { font-size: 22px; font-weight: bold; color: #818cf8; }
-          .lang { background: #312e81; color: #c7d2fe; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: bold; border: 1px solid #4338ca; text-transform: uppercase; }
-          .code-container { background: #111827; border-radius: 12px; border: 1px solid #1f2937; padding: 20px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: #38bdf8; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-          .footer { margin-top: 24px; font-size: 12px; color: #64748b; text-align: right; border-top: 1px solid #1e293b; padding-top: 12px; }
+          body { background: #141926; color: #f1f5f9; font-family: 'JetBrains Mono', monospace; padding: 28px; margin: 0; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 16px; margin-bottom: 24px; }
+          .title { font-size: 20px; font-weight: 700; color: #818cf8; }
+          .lang { background: rgba(99,102,241,0.15); color: #c7d2fe; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; border: 1px solid rgba(99,102,241,0.3); text-transform: uppercase; }
+          .code-container { background: #0e121e; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); padding: 24px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; color: #38bdf8; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+          .footer { margin-top: 24px; font-size: 11px; color: #64748b; text-align: right; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px; font-family: system-ui, sans-serif; }
         </style>
       </head>
       <body>
@@ -138,7 +287,7 @@ function App() {
           <div class="lang">${(question.codeLanguage || 'cpp')}</div>
         </div>
         <div class="code-container"><code>${(question.code || '// No solution code recorded for this question.').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></div>
-        <div class="footer">DSA Tracker • Spaced Repetition Revision Window</div>
+        <div class="footer">DSA Tracker • Spaced Repetition Algorithmic Revision</div>
       </body>
       </html>
     `;
@@ -383,7 +532,7 @@ function App() {
 
   const generateDynamicBoilerplate = async (q, lang) => {
     setIsGeneratingBoilerplate(true);
-    setPlaygroundCode("// AI is fetching/generating LeetCode boilerplate...");
+    setPlaygroundCode("// AI is generating starter boilerplate...");
     try {
       const res = await axios.post('/api/ai/generate-boilerplate', {
         title: q.title,
@@ -462,7 +611,6 @@ function App() {
         nextReviewDate: reviewRes.data?.nextReviewDate
       });
 
-      // Refetch questions and activity stats so the question is removed from the due queue immediately
       fetchQuestions();
       fetchActivityStats();
     } catch (error) {
@@ -498,405 +646,500 @@ function App() {
     }
   };
 
+  // Helper for rendering difficulty badges
+  const renderDifficultyBadge = (diff) => {
+    switch (diff) {
+      case 'Easy':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
+            Easy
+          </span>
+        );
+      case 'Hard':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shadow-xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 dark:bg-rose-400"></span>
+            Hard
+          </span>
+        );
+      case 'Medium':
+      default:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400"></span>
+            Medium
+          </span>
+        );
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#0b0e17] text-gray-100 p-4 md:p-8 font-sans selection:bg-brand-500 selection:text-white max-w-[1500px] mx-auto">
-      
-      {/* HEADER CARD - MATCHING DASHBOARD.PNG */}
-      <header className="mb-6 glass-panel rounded-2xl px-6 py-4 border border-purple-500/30 shadow-[0_0_30px_rgba(147,51,234,0.15)] flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-purple-900/40 rounded-xl border border-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.3)]">
-            <BrainCircuit className="text-purple-300 w-6 h-6" />
+    <>
+      <ThreeBackground theme={theme} />
+      <div className="relative z-10 min-h-screen p-4 sm:p-6 lg:p-8 max-w-[1540px] mx-auto transition-colors duration-200">
+        
+        {/* --- SLEEK MINIMAL HEADER BAR --- */}
+      <header className="mb-6 glass-panel rounded-2xl px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500/15 to-purple-500/10 border border-indigo-500/25 text-indigo-600 dark:text-indigo-300 shadow-sm">
+            <BrainCircuit className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            DSA Tracker
-          </h1>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+              DSA Tracker
+              <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20">
+                Spaced Repetition
+              </span>
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Data Structures &amp; Algorithms Spaced Repetition Workspace
+            </p>
+          </div>
         </div>
 
-        <button
-          onClick={handleRandomPractice}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs rounded-xl shadow-[0_0_20px_rgba(147,51,234,0.3)] transition-all transform hover:scale-105 active:scale-95 border border-purple-400/30"
-          title="Open a completely random question from your solved collection for practice"
-        >
-          <Sparkles className="w-4 h-4 text-purple-200 animate-pulse" />
-          Practice Mode (Random Question)
-        </button>
+        <div className="flex items-center flex-wrap gap-2.5">
+          {/* Daily Quota Selector */}
+          <div className="flex items-center gap-2 glass-input px-3 py-1.5 rounded-xl text-xs font-medium">
+            <span className="text-slate-500 dark:text-slate-400">Daily Quota:</span>
+            <select
+              value={dailyRevisionLimit}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                setDailyRevisionLimit(val);
+                localStorage.setItem('dailyRevisionLimit', val);
+              }}
+              className="bg-transparent text-indigo-600 dark:text-indigo-300 font-semibold outline-none cursor-pointer"
+            >
+              <option value={2} className="bg-slate-50 dark:bg-[#141926] text-slate-800 dark:text-slate-200">2 / day</option>
+              <option value={3} className="bg-slate-50 dark:bg-[#141926] text-slate-800 dark:text-slate-200">3 / day</option>
+              <option value={5} className="bg-slate-50 dark:bg-[#141926] text-slate-800 dark:text-slate-200">5 / day</option>
+              <option value={10} className="bg-slate-50 dark:bg-[#141926] text-slate-800 dark:text-slate-200">10 / day</option>
+              <option value={999} className="bg-slate-50 dark:bg-[#141926] text-slate-800 dark:text-slate-200">Unlimited</option>
+            </select>
+          </div>
+
+          {/* Quick Random Practice Mode CTA */}
+          <button
+            onClick={handleRandomPractice}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/25 rounded-xl text-xs font-semibold transition-all shadow-sm active:scale-[0.98]"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+            Practice Mode (Random Question)
+          </button>
+
+          {/* Streak Indicator */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-300 text-xs font-semibold font-mono">
+            <Flame className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+            <span>{activityData.stats.currentStreak || 0}d streak</span>
+          </div>
+
+          {/* Light / Dark Mode Toggle with Noticeable Radial Shockwave Reveal */}
+          <button
+            onClick={toggleTheme}
+            className="p-2.5 rounded-xl glass-input text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all active:scale-[0.88] relative group shadow-sm overflow-hidden"
+            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            aria-label="Toggle Color Theme"
+          >
+            <div className={`transition-all duration-700 ease-out transform ${isThemeSpinning ? 'rotate-[360deg] scale-125' : 'group-hover:rotate-45'}`}>
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400 transition-colors" />
+              ) : (
+                <Moon className="w-4 h-4 text-indigo-600 transition-colors" />
+              )}
+            </div>
+          </button>
+        </div>
       </header>
 
-      {/* LEETCODE STYLE PROGRESS & ACTIVITY DASHBOARD */}
-      <section className="mb-8 glass-panel rounded-2xl p-6 border border-white/10 shadow-2xl">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-6">
-          <div>
-            <h2 className="text-lg font-bold text-white tracking-wide">Activity & Progress Log</h2>
+      {/* --- PROGRESS & ACTIVITY DASHBOARD --- */}
+      <section className="mb-6 glass-panel rounded-2xl p-5 sm:p-6 space-y-5">
+        <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.06] pb-3">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <h2 className="text-sm font-semibold tracking-wide text-slate-800 dark:text-slate-200 uppercase font-mono">
+              Learning Activity &amp; Consistency
+            </h2>
           </div>
-
-          {/* Top Right Heatmap Legend */}
-          <div className="flex items-center gap-1.5 text-xs text-gray-400">
-            <span>Less</span>
-            <div className="w-3.5 h-3.5 bg-[#141826] border border-white/10 rounded-sm"></div>
-            <div className="w-3.5 h-3.5 bg-emerald-950 border border-emerald-800 rounded-sm"></div>
-            <div className="w-3.5 h-3.5 bg-emerald-700 border border-emerald-600 rounded-sm"></div>
-            <div className="w-3.5 h-3.5 bg-emerald-400 border border-emerald-300 rounded-sm"></div>
-            <span>More</span>
-          </div>
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+            Total Solved: <strong className="text-slate-900 dark:text-slate-100">{allQuestions.length}</strong>
+          </span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          
-          {/* Left 4 Stat Cards Grid (2x2 Layout matching dashboard.png) */}
+          {/* Left 4 Stat Cards with subtle depth hover */}
           <div className="lg:col-span-4 grid grid-cols-2 gap-3">
-            <div className="bg-[#141826]/90 border border-white/10 rounded-2xl p-4 flex flex-col justify-between shadow-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <Flame className="w-5 h-5 text-orange-400" />
+            <div className="glass-panel p-3.5 rounded-xl hover:border-amber-500/30 transition-all">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Current</span>
+                <Flame className="w-4 h-4 text-amber-500 dark:text-amber-400" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-white">{activityData.stats.currentStreak} <span className="text-xs font-normal text-gray-400">days</span></p>
-                <p className="text-xs text-gray-400 mt-0.5 font-medium">Current Streak</p>
-              </div>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{activityData.stats.currentStreak} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">days</span></p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Active Streak</p>
             </div>
 
-            <div className="bg-[#141826]/90 border border-white/10 rounded-2xl p-4 flex flex-col justify-between shadow-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <Trophy className="w-5 h-5 text-amber-400" />
+            <div className="glass-panel p-3.5 rounded-xl hover:border-indigo-500/30 transition-all">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Record</span>
+                <Trophy className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-white">{activityData.stats.longestStreak} <span className="text-xs font-normal text-gray-400">days</span></p>
-                <p className="text-xs text-gray-400 mt-0.5 font-medium">Best Streak</p>
-              </div>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{activityData.stats.longestStreak} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">days</span></p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Best Streak</p>
             </div>
 
-            <div className="bg-[#141826]/90 border border-white/10 rounded-2xl p-4 flex flex-col justify-between shadow-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/40">
-                  <Check className="w-3.5 h-3.5 stroke-[3]" />
-                </div>
+            <div className="glass-panel p-3.5 rounded-xl hover:border-emerald-500/30 transition-all">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Problems</span>
+                <BrainCircuit className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-white">{activityData.stats.totalNew}</p>
-                <p className="text-xs text-gray-400 mt-0.5 font-medium">New Solved</p>
-              </div>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{activityData.stats.totalNew || allQuestions.length}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Logged Solved</p>
             </div>
 
-            <div className="bg-[#141826]/90 border border-white/10 rounded-2xl p-4 flex flex-col justify-between shadow-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center border border-purple-500/40">
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </div>
+            <div className="glass-panel p-3.5 rounded-xl hover:border-purple-500/30 transition-all">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Reviews</span>
+                <RotateCcw className="w-4 h-4 text-purple-600 dark:text-purple-400" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-white">{activityData.stats.totalRecalls}</p>
-                <p className="text-xs text-gray-400 mt-0.5 font-medium">Recalls Done</p>
-              </div>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{activityData.stats.totalRecalls}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Recalls Completed</p>
             </div>
           </div>
 
-          {/* Right Heatmap Grid (22-Week Contribution Timeline matching dashboard.png) */}
-          <div className="lg:col-span-8 overflow-x-auto">
-            <div className="min-w-[620px] flex flex-col gap-2">
-              {/* Top Axis Labels */}
-              <div className="flex text-xs text-gray-400 pl-8 gap-4 justify-between font-mono">
+          {/* Right Contribution Heatmap Matrix (No Harsh White Boxes) */}
+          <div className="lg:col-span-8 glass-panel p-4 rounded-xl flex flex-col justify-between">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2 font-mono">
+              <span>Revision Heatmap (Past 24 Weeks)</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px]">Less</span>
+                <div className="w-2.5 h-2.5 bg-slate-200/60 dark:bg-slate-800/40 rounded-sm border border-slate-300/30 dark:border-white/[0.04]"></div>
+                <div className="w-2.5 h-2.5 bg-emerald-200/80 dark:bg-emerald-950 rounded-sm border border-emerald-300/40 dark:border-emerald-900/40"></div>
+                <div className="w-2.5 h-2.5 bg-emerald-400 dark:bg-emerald-700 rounded-sm border border-emerald-500 dark:border-emerald-600/40"></div>
+                <div className="w-2.5 h-2.5 bg-emerald-600 dark:bg-emerald-500 rounded-sm border border-emerald-600 dark:border-emerald-400"></div>
+                <span className="text-[10px]">More</span>
+              </div>
+            </div>
+
+            <div className="flex gap-2 items-center">
+              <div className="flex flex-col text-[10px] text-slate-400 dark:text-slate-500 justify-between h-[105px] w-5 font-mono">
                 <span>M</span><span>W</span><span>F</span>
-                <span>3</span><span>5</span><span>7</span><span>10</span><span>11</span><span>13</span><span>15</span><span>16</span><span>18</span><span>20</span><span>22</span>
               </div>
 
-              {/* Day Labels + Grid */}
-              <div className="flex gap-2 items-center">
-                <div className="flex flex-col text-xs text-gray-400 justify-between h-[110px] w-6 font-mono">
-                  <span>M</span><span>W</span><span>F</span>
-                </div>
+              <div className="grid grid-rows-7 grid-flow-col gap-1.5 flex-1 overflow-x-auto pb-1">
+                {Array.from({ length: 168 }).map((_, i) => {
+                  const d = new Date();
+                  d.setDate(d.getDate() - (167 - i));
+                  const dateStr = d.toISOString().split('T')[0];
+                  const dayData = activityData.dailyActivity[dateStr] || { newCount: 0, recallCount: 0, total: 0 };
+                  const total = dayData.total;
 
-                <div className="grid grid-rows-7 grid-flow-col gap-1.5 flex-1">
-                  {(() => {
-                    const cells = [];
-                    const today = new Date();
-                    const startDate = new Date(today);
-                    startDate.setDate(today.getDate() - (22 * 7 - 1));
+                  // Smooth translucent cells blending with glass theme (zero harsh white boxes)
+                  let bgClass = "bg-slate-200/60 dark:bg-slate-800/40 border border-slate-300/30 dark:border-white/[0.03]";
+                  if (total === 1) bgClass = "bg-emerald-200/80 dark:bg-emerald-950 border border-emerald-300/50 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-400";
+                  else if (total === 2) bgClass = "bg-emerald-400 dark:bg-emerald-700 border border-emerald-500 dark:border-emerald-600/60 text-white dark:text-emerald-100 shadow-[0_0_6px_rgba(16,185,129,0.3)]";
+                  else if (total >= 3) bgClass = "bg-emerald-600 dark:bg-emerald-500 border border-emerald-600 dark:border-emerald-400 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]";
 
-                    for (let i = 0; i < 22 * 7; i++) {
-                      const cellDate = new Date(startDate);
-                      cellDate.setDate(startDate.getDate() + i);
-                      const dateStr = cellDate.toISOString().split('T')[0];
-                      const dayData = activityData.dailyActivity[dateStr] || { newCount: 0, recallCount: 0, total: 0 };
-                      const total = dayData.total;
-
-                      let bgClass = "bg-[#141826] border-white/5";
-                      if (total === 1) bgClass = "bg-emerald-950 border-emerald-800 text-emerald-400";
-                      else if (total === 2) bgClass = "bg-emerald-700 border-emerald-600 text-emerald-100 shadow-[0_0_6px_rgba(16,185,129,0.4)]";
-                      else if (total >= 3) bgClass = "bg-emerald-400 border-emerald-300 text-white shadow-[0_0_10px_rgba(16,185,129,0.7)]";
-
-                      cells.push(
-                        <div
-                          key={dateStr}
-                          onMouseEnter={() => setHoveredCell({ date: dateStr, data: dayData })}
-                          onMouseLeave={() => setHoveredCell(null)}
-                          className={`w-3.5 h-3.5 rounded-sm border transition-all duration-150 hover:scale-125 cursor-pointer relative ${bgClass}`}
-                        />
-                      );
-                    }
-                    return cells;
-                  })()}
-                </div>
+                  return (
+                    <div
+                      key={i}
+                      onMouseEnter={() => setHoveredCell({ date: dateStr, data: dayData })}
+                      onMouseLeave={() => setHoveredCell(null)}
+                      className={`w-3.5 h-3.5 rounded-[3px] transition-all duration-150 cursor-pointer ${bgClass} hover:scale-125 hover:z-10`}
+                    />
+                  );
+                })}
               </div>
+            </div>
 
-              {/* Bottom Month Label & Bottom Right Legend */}
-              <div className="flex items-center justify-between text-xs text-gray-400 pl-8 pr-2 mt-1">
-                <span>Jan - Jun</span>
-                <div className="flex items-center gap-1.5">
-                  <span>Less</span>
-                  <div className="w-3.5 h-3.5 bg-[#141826] border border-white/10 rounded-sm"></div>
-                  <div className="w-3.5 h-3.5 bg-emerald-950 border border-emerald-800 rounded-sm"></div>
-                  <div className="w-3.5 h-3.5 bg-emerald-700 border border-emerald-600 rounded-sm"></div>
-                  <div className="w-3.5 h-3.5 bg-emerald-400 border border-emerald-300 rounded-sm"></div>
-                  <span>More</span>
-                </div>
-              </div>
+            {/* Hover Tooltip / Detail Card */}
+            <div className="min-h-[28px] mt-2 pt-2 border-t border-slate-200/60 dark:border-white/[0.04] text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between font-mono">
+              {hoveredCell ? (
+                <>
+                  <span className="text-slate-700 dark:text-slate-300 font-semibold">{hoveredCell.date}</span>
+                  <div className="flex gap-4">
+                    <span>Solved: <strong className="text-slate-900 dark:text-slate-100">{hoveredCell.data.newCount}</strong></span>
+                    <span>Recalls: <strong className="text-emerald-600 dark:text-emerald-400">{hoveredCell.data.recallCount}</strong></span>
+                  </div>
+                </>
+              ) : (
+                <span className="text-slate-400 text-[11px]">Hover over any day cell to view daily activity metrics</span>
+              )}
             </div>
           </div>
-        </div>
-
-        {/* Hovered Date Tooltip Info Container */}
-        <div className="mt-3 h-[38px] flex items-center">
-          {hoveredCell ? (
-            <div className="w-full h-full px-4 py-2 bg-[#0b0e17]/90 border border-white/10 rounded-xl text-xs flex items-center justify-between text-gray-300">
-              <span className="font-semibold text-purple-300">{hoveredCell.date}</span>
-              <div className="flex gap-6">
-                <span>New Solved: <strong className="text-white">{hoveredCell.data.newCount}</strong></span>
-                <span>Recalls Completed: <strong className="text-emerald-400">{hoveredCell.data.recallCount}</strong></span>
-              </div>
-            </div>
-          ) : (
-            <div className="w-full h-full border border-transparent"></div>
-          )}
         </div>
       </section>
 
-      {/* MAIN TWO-COLUMN LAYOUT WITH SIDEBAR */}
-      <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      {/* --- MAIN 12-COLUMN WORKSPACE --- */}
+      <main className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* LEFT ACCORDION SIDEBAR - DATA STRUCTURES & ALGORITHMS TAXONOMY */}
-        <aside className="lg:col-span-3 glass-panel rounded-2xl p-5 border border-white/10 space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-white/10">
-            <h2 className="text-base font-bold text-white tracking-wide">Data Structures & Algorithms</h2>
+        {/* LEFT COLUMN: TAXONOMY & TOPIC ACCORDION SIDEBAR (Sanitized of Stark White Boxes) */}
+        <aside className="lg:col-span-3 glass-panel rounded-2xl p-4 sm:p-5 space-y-4 lg:sticky lg:top-6">
+          <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.06] pb-3">
+            <h3 className="text-xs font-semibold tracking-wider text-slate-700 dark:text-slate-300 uppercase font-mono flex items-center gap-2">
+              <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              Taxonomy
+            </h3>
             {(selectedTopic || selectedSubtopic) && (
               <button 
                 onClick={() => { setSelectedTopic(null); setSelectedSubtopic(null); }}
-                className="text-[10px] text-gray-400 hover:text-white px-2 py-0.5 bg-[#141826] rounded border border-white/10"
+                className="text-[10px] text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white px-2 py-0.5 glass-input rounded"
               >
-                Clear
+                Clear Filter
               </button>
             )}
           </div>
 
-          {/* Quick View Modes */}
-          <div className="space-y-1 pb-2 border-b border-white/10">
+          <div className="space-y-1">
             <button
-              onClick={() => { setViewMode('due'); setSelectedTopic(null); setSelectedSubtopic(null); }}
-              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${viewMode === 'due' && !selectedTopic ? 'bg-white/10 text-white font-semibold border border-white/10' : 'hover:bg-white/5 text-gray-400'}`}
+              onClick={() => { setSelectedTopic(null); setSelectedSubtopic(null); setViewMode('all'); }}
+              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-all ${
+                viewMode === 'all' && !selectedTopic && !selectedSubtopic
+                  ? 'bg-indigo-600/15 text-indigo-600 dark:text-indigo-300 font-semibold border border-indigo-500/25' 
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/35 dark:hover:bg-white/[0.04] hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
             >
-              <span className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-purple-400" /> Due Today</span>
-              <span className="text-[10px] px-2 py-0.5 bg-[#141826] text-gray-300 rounded-md border border-white/10">{questions.length}</span>
+              <span className="flex items-center gap-2">
+                <List className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> All Logged Problems
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200/50 dark:bg-white/[0.06] border border-slate-300/40 dark:border-white/[0.08] font-mono text-slate-600 dark:text-slate-400">
+                {allQuestions.length}
+              </span>
             </button>
 
-            <button
-              onClick={() => { setViewMode('all'); setSelectedTopic(null); setSelectedSubtopic(null); }}
-              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${viewMode === 'all' && !selectedTopic ? 'bg-white/10 text-white font-semibold border border-white/10' : 'hover:bg-white/5 text-gray-400'}`}
-            >
-              <span className="flex items-center gap-2"><List className="w-3.5 h-3.5 text-purple-400" /> All Questions</span>
-              <span className="text-[10px] px-2 py-0.5 bg-[#141826] text-gray-300 rounded-md border border-white/10">{allQuestions.length}</span>
-            </button>
-          </div>
-
-          {/* Topics & Taxonomy List */}
-          <div className="space-y-1 text-sm">
             {Object.keys(topicTree).length === 0 ? (
-              <p className="text-xs text-gray-500 italic px-3 py-2">No categorized topics yet.</p>
-            ) : Object.keys(topicTree).sort().map((topicName) => {
-              const hasItems = topicTree[topicName];
-              const isTopicSelected = selectedTopic === topicName && !selectedSubtopic;
-              const isExpanded = expandedTopics[topicName];
+              <p className="text-xs text-slate-400 py-3 text-center italic">No topics logged yet</p>
+            ) : (
+              Object.entries(topicTree).map(([topicName, topicData]) => {
+                const isExpanded = expandedTopics[topicName];
+                const isTopicSelected = selectedTopic === topicName && !selectedSubtopic;
 
-              return (
-                <div key={topicName} className="rounded-xl overflow-hidden">
-                  <div 
-                    onClick={() => { setSelectedTopic(topicName); setSelectedSubtopic(null); }}
-                    className={`w-full px-3 py-2 text-sm flex items-center justify-between cursor-pointer transition-colors ${isTopicSelected ? 'bg-white/10 text-white font-semibold rounded-xl border border-white/10' : 'text-gray-300 hover:bg-white/5 rounded-xl'}`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <button 
-                        onClick={(e) => toggleTopicExpand(topicName, e)}
-                        className="text-gray-400 hover:text-white"
-                      >
-                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                      </button>
-                      <span>{topicName}</span>
-                    </span>
-                    {hasItems && (
-                      <span className="text-xs px-2 py-0.5 bg-[#141826] text-gray-400 rounded-md border border-white/10">{hasItems.count}</span>
+                return (
+                  <div key={topicName} className="space-y-0.5 pt-1">
+                    <div
+                      onClick={() => {
+                        setSelectedTopic(topicName);
+                        setSelectedSubtopic(null);
+                      }}
+                      className={`w-full px-3 py-2 text-xs flex items-center justify-between cursor-pointer rounded-xl transition-all ${
+                        isTopicSelected 
+                          ? 'bg-indigo-600/15 text-indigo-600 dark:text-indigo-300 font-semibold border border-indigo-500/25' 
+                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/35 dark:hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <button 
+                          onClick={(e) => toggleTopicExpand(topicName, e)}
+                          className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5"
+                        >
+                          <ChevronRight className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-90 text-indigo-600 dark:text-indigo-400' : ''}`} />
+                        </button>
+                        <Folder className="w-3.5 h-3.5 text-indigo-500/80 dark:text-indigo-400/80" />
+                        <span className="truncate max-w-[140px]">{topicName}</span>
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200/50 dark:bg-white/[0.06] border border-slate-300/40 dark:border-white/[0.06] font-mono text-slate-600 dark:text-slate-400">
+                        {topicData.count}
+                      </span>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="ml-4 pl-2 border-l border-slate-200/80 dark:border-white/10 space-y-0.5 my-1">
+                        {Object.entries(topicData.subtopics).map(([subName, count]) => {
+                          const isSubSelected = selectedSubtopic?.topic === topicName && selectedSubtopic?.subtopic === subName;
+                          return (
+                            <button
+                              key={subName}
+                              onClick={() => {
+                                setSelectedTopic(topicName);
+                                setSelectedSubtopic({ topic: topicName, subtopic: subName });
+                              }}
+                              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-colors ${
+                                isSubSelected 
+                                  ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 font-semibold border border-indigo-500/30' 
+                                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/30 dark:hover:bg-white/[0.03]'
+                              }`}
+                            >
+                              <span className="truncate max-w-[130px]">{subName}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">{count}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-
-                  {/* Subtopics */}
-                  {isExpanded && (
-                    <div className="pl-8 pr-2 py-1 space-y-1">
-                      {hasItems && Object.entries(hasItems.subtopics).map(([subName, subCount]) => {
-                        const isSubSelected = selectedSubtopic?.topic === topicName && selectedSubtopic?.subtopic === subName;
-                        return (
-                          <button
-                            key={subName}
-                            onClick={() => { setSelectedTopic(topicName); setSelectedSubtopic({ topic: topicName, subtopic: subName }); }}
-                            className={`w-full text-left px-3 py-1.5 rounded-lg text-xs flex items-center justify-between transition-colors ${isSubSelected ? 'bg-indigo-600 text-white font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-                          >
-                            <span>{subName}</span>
-                            <span className="text-[10px] opacity-75">{subCount}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </aside>
 
-        {/* RIGHT MAIN CONTENT AREA */}
-        <div className="lg:col-span-9 space-y-8">
+        {/* RIGHT COLUMN: MAIN FORM & REVISION FEED */}
+        <div className="lg:col-span-9 space-y-6">
           
-          {/* LOG QUESTION FORM WITH CODE & TEST CASE OPTIONS */}
-          <div className="glass-panel rounded-2xl p-6 border border-white/10 shadow-2xl">
-            {isClassifying && (
-              <div className="mb-4 p-3 bg-purple-500/20 border border-purple-500/40 rounded-xl flex items-center gap-3 text-purple-300 text-xs animate-pulse">
-                <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
-                <span>AI is analyzing your approach, extracting pattern hierarchy, and structuring solution code...</span>
+          {/* LOG QUESTION FORM */}
+          <section className="glass-panel rounded-2xl p-5 sm:p-6 shadow-lg">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.06] pb-3">
+                <div className="flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <h3 className="text-sm font-semibold tracking-wide text-slate-900 dark:text-white">
+                    Log Question
+                  </h3>
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => setShowCodeSection(!showCodeSection)}
+                  className={`text-xs px-3 py-1.5 rounded-xl border transition-all flex items-center gap-1.5 ${
+                    showCodeSection 
+                      ? 'bg-indigo-600/15 text-indigo-600 dark:text-indigo-300 border-indigo-500/40' 
+                      : 'glass-input text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Code className="w-3.5 h-3.5" />
+                  {showCodeSection ? 'Hide Solution Code' : '+ Add Solution Code & Test Cases'}
+                </button>
               </div>
-            )}
 
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2 text-purple-400">
-                <Library className="w-5 h-5" />
-                <h2 className="text-xl font-bold text-white">Log Question</h2>
-              </div>
-              
-              <button
-                type="button"
-                onClick={() => setShowCodeSection(!showCodeSection)}
-                className={`text-xs px-3 py-1.5 rounded-xl border transition-all flex items-center gap-1.5 ${showCodeSection ? 'bg-purple-600 text-white border-purple-400' : 'bg-[#141826] text-gray-400 border-white/10 hover:text-white'}`}
-              >
-                <Code className="w-3.5 h-3.5" />
-                {showCodeSection ? 'Hide Code & Test Cases' : '+ Add Solution Code & Test Cases'}
-              </button>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="space-y-4 flex flex-col">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Title & URL Inputs */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">Problem Title</label>
-                  <input 
-                    type="text" value={title} onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Trapping Rainwater"
-                    className="w-full bg-[#141826] border border-white/10 rounded-xl p-3 text-white focus:border-purple-500 outline-none transition-colors" required
+                  <label className="text-xs text-slate-600 dark:text-slate-400 font-medium mb-1 block">Problem Title</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 739. Daily Temperatures"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full glass-input rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium"
+                    required
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">LeetCode / Problem Link (Optional)</label>
-                  <input 
-                    type="url" value={url} onChange={(e) => setUrl(e.target.value)}
-                    placeholder="https://leetcode.com/problems/..."
-                    className="w-full bg-[#141826] border border-white/10 rounded-xl p-3 text-white focus:border-purple-500 outline-none transition-colors"
+                  <label className="text-xs text-slate-600 dark:text-slate-400 font-medium mb-1 block">LeetCode / Problem URL (Optional)</label>
+                  <input
+                    type="url"
+                    placeholder="https://leetcode.com/problems/daily-temperatures/"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    className="w-full glass-input rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium"
                   />
                 </div>
+              </div>
 
+              {/* Difficulty Pills & Pattern Classifier Info */}
+              <div className="flex items-center justify-between flex-wrap gap-3 pt-1">
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">Difficulty Level</label>
-                  <div className="flex gap-1.5 pt-0.5">
+                  <label className="text-xs text-slate-600 dark:text-slate-400 font-medium mb-1.5 block">Difficulty Level</label>
+                  <div className="flex gap-2">
                     {['Easy', 'Medium', 'Hard'].map((d) => (
                       <button
                         key={d}
                         type="button"
                         onClick={() => setDifficulty(d)}
-                        className={`flex-1 py-2.5 px-2 text-xs font-semibold rounded-xl border transition-all ${
-                          difficulty === d
-                            ? d === 'Easy' ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
-                              : d === 'Medium' ? 'bg-amber-500/30 text-amber-300 border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
-                              : 'bg-rose-500/30 text-rose-300 border-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
-                            : 'bg-[#141826] text-gray-400 border-white/10 hover:text-white'
+                        className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                          difficulty === d 
+                            ? d === 'Easy' 
+                              ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 shadow-sm'
+                              : d === 'Hard'
+                              ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40 shadow-sm'
+                              : 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 shadow-sm'
+                            : 'glass-input text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                         }`}
                       >
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          d === 'Easy' ? 'bg-emerald-500 dark:bg-emerald-400' : d === 'Hard' ? 'bg-rose-500 dark:bg-rose-400' : 'bg-amber-500 dark:bg-amber-400'
+                        }`}></span>
                         {d}
                       </button>
                     ))}
                   </div>
                 </div>
+
+                <div className="text-right text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                  <span>AI classifies Pattern, Taxonomy &amp; schedules SM-2</span>
+                </div>
               </div>
 
+              {/* Intuition Notes Textarea */}
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">Your Aha! Moment / Notes</label>
-                <textarea 
-                  value={notes} onChange={(e) => setNotes(e.target.value)}
-                  placeholder="What was the trick? How does the pattern apply?" rows={3}
-                  className="w-full bg-[#141826] border border-white/10 rounded-xl p-3 text-white focus:border-purple-500 outline-none transition-colors resize-none" required
+                <label className="text-xs text-slate-600 dark:text-slate-400 font-medium mb-1 block">Intuition &amp; Key Notes</label>
+                <textarea
+                  placeholder="Summarize the core insight, approach, and edge cases in your own words..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  className="w-full glass-input rounded-xl p-3.5 text-xs sm:text-sm resize-none font-sans leading-relaxed"
+                  required
                 />
               </div>
 
               {/* COLLAPSIBLE SOLUTION CODE & TEST CASES SECTION */}
               {showCodeSection && (
-                <div className="p-4 bg-[#0b0e17] border border-purple-500/20 rounded-2xl space-y-4">
+                <div className="p-4 rounded-xl bg-slate-200/30 dark:bg-slate-900/60 border border-slate-300/40 dark:border-indigo-500/20 space-y-4">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-purple-400 uppercase tracking-wider flex items-center gap-1.5 font-mono">
-                      <Code className="w-4 h-4" /> Solution Code (For Quick Revision)
+                    <label className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                      <Code className="w-4 h-4" /> Solution Code
                     </label>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400">Language:</span>
-                      <select 
-                        value={codeLanguage} onChange={(e) => setCodeLanguage(e.target.value)}
-                        className="bg-[#141826] text-xs text-white border border-white/10 rounded-lg px-2.5 py-1 outline-none font-mono"
+                      <span className="text-xs text-slate-600 dark:text-slate-400">Language:</span>
+                      <select
+                        value={codeLanguage}
+                        onChange={(e) => setCodeLanguage(e.target.value)}
+                        className="glass-input text-xs px-2.5 py-1 rounded-lg font-mono text-indigo-600 dark:text-indigo-300"
                       >
-                        <option value="cpp">C++</option>
-                        <option value="python">Python</option>
-                        <option value="java">Java</option>
-                        <option value="javascript">JavaScript</option>
-                        <option value="go">Go</option>
+                        <option value="cpp" className="bg-slate-50 dark:bg-[#141926] text-slate-900 dark:text-slate-100">C++</option>
+                        <option value="python" className="bg-slate-50 dark:bg-[#141926] text-slate-900 dark:text-slate-100">Python</option>
+                        <option value="java" className="bg-slate-50 dark:bg-[#141926] text-slate-900 dark:text-slate-100">Java</option>
+                        <option value="javascript" className="bg-slate-50 dark:bg-[#141926] text-slate-900 dark:text-slate-100">JavaScript</option>
+                        <option value="go" className="bg-slate-50 dark:bg-[#141926] text-slate-900 dark:text-slate-100">Go</option>
                       </select>
                     </div>
                   </div>
 
-                  <textarea 
-                    value={code} onChange={(e) => setCode(e.target.value)}
+                  <textarea
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
                     onKeyDown={(e) => handleCodeKeyDown(e, code, setCode)}
-                    placeholder={`Paste your working ${codeLanguage.toUpperCase()} solution code here...`} rows={6}
-                    className="w-full bg-[#141826] border border-white/10 rounded-xl p-3 text-sm font-mono text-cyan-300 focus:border-purple-500 outline-none transition-colors resize-y"
+                    placeholder={getStarterTemplate(codeLanguage, title || 'Problem')}
+                    rows={8}
+                    className="w-full p-3.5 rounded-xl bg-[#0e121e] border border-slate-700/50 dark:border-white/10 font-mono text-xs text-cyan-300 focus:outline-none focus:border-indigo-500/50 resize-none leading-relaxed"
                   />
 
-                  {/* TEST CASES SECTION */}
-                  <div className="pt-2 border-t border-white/10">
+                  {/* Test Cases List */}
+                  <div className="pt-2 border-t border-slate-200 dark:border-white/[0.06]">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-400">Custom Test Cases (For AI Practice Playground)</span>
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Custom Test Cases</span>
                       <button 
-                        type="button" onClick={() => handleAddTestCase(setTestCases)}
-                        className="text-[11px] text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                        type="button" 
+                        onClick={() => handleAddTestCase(setTestCases)}
+                        className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 flex items-center gap-1"
                       >
-                        <Plus className="w-3 h-3" /> Add Test Case
+                        <Plus className="w-3.5 h-3.5" /> Add Case
                       </button>
                     </div>
 
                     <div className="space-y-2">
                       {testCases.map((tc, idx) => (
                         <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
-                          <input 
-                            type="text" value={tc.input} onChange={(e) => handleTestCaseChange(idx, 'input', e.target.value, setTestCases)}
-                            placeholder="Input: e.g. nums = [2,7,11,15], target = 9"
-                            className="sm:col-span-6 bg-[#141826] text-xs border border-white/10 rounded-lg p-2 text-white outline-none font-mono"
+                          <input
+                            type="text"
+                            placeholder="Input: nums=[2,7,11,15], target=9"
+                            value={tc.input}
+                            onChange={(e) => handleTestCaseChange(idx, 'input', e.target.value, setTestCases)}
+                            className="sm:col-span-6 glass-input text-xs px-3 py-1.5 rounded-lg font-mono"
                           />
-                          <input 
-                            type="text" value={tc.expectedOutput} onChange={(e) => handleTestCaseChange(idx, 'expectedOutput', e.target.value, setTestCases)}
-                            placeholder="Expected Output: e.g. [0,1]"
-                            className="sm:col-span-5 bg-[#141826] text-xs border border-white/10 rounded-lg p-2 text-emerald-300 outline-none font-mono"
+                          <input
+                            type="text"
+                            placeholder="Expected Output: [0,1]"
+                            value={tc.expectedOutput}
+                            onChange={(e) => handleTestCaseChange(idx, 'expectedOutput', e.target.value, setTestCases)}
+                            className="sm:col-span-5 glass-input text-xs px-3 py-1.5 rounded-lg font-mono"
                           />
-                          <button 
-                            type="button" onClick={() => handleRemoveTestCase(idx, setTestCases)}
-                            className="sm:col-span-1 text-gray-500 hover:text-red-400 flex justify-center"
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTestCase(idx, setTestCases)}
+                            className="sm:col-span-1 text-slate-400 hover:text-rose-500 p-1 flex justify-center"
                           >
-                            <X className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       ))}
@@ -905,408 +1148,453 @@ function App() {
                 </div>
               )}
 
-              <button type="submit" disabled={isClassifying} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(147,51,234,0.3)]">
-                <TerminalSquare className="w-4 h-4" /> Analyze & Save Question
-              </button>
+              {/* Submit Button */}
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={isClassifying || !title.trim() || !notes.trim()}
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 disabled:opacity-50 transition-all flex items-center gap-2 active:scale-[0.98]"
+                >
+                  {isClassifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {isClassifying ? 'Analyzing & Structuring Notes...' : 'Save & Schedule Problem'}
+                </button>
+              </div>
             </form>
-          </div>
+          </section>
 
-          {/* QUESTION QUEUE LISTING - 2 COLUMNS GRID MATCHING DASHBOARD.PNG */}
-          <div className="glass-panel rounded-2xl p-6 min-h-[500px]">
-            
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-              <div className="flex items-center gap-2 text-purple-400">
-                {viewMode === 'due' ? <Calendar className="w-5 h-5" /> : <List className="w-5 h-5" />}
-                <h2 className="text-xl font-bold text-white">
-                  {selectedSubtopic
-                    ? `${selectedSubtopic.topic} > ${selectedSubtopic.subtopic}`
-                    : selectedTopic
-                    ? `Topic: ${selectedTopic}` 
-                    : viewMode === 'due' ? 'Due for Revision' : 'All Scheduled Questions'}
-                </h2>
-                {(selectedTopic || selectedSubtopic) && (
-                  <span className="text-xs px-2.5 py-1 bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30 flex items-center gap-1">
-                    <Tag className="w-3 h-3" /> {displayedQuestions.length} questions
+          {/* QUESTIONS LIST SECTION */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>{viewMode === 'due' ? 'Due for Review Today' : 'All Solved Problems'}</span>
+                  <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                    {displayedQuestions.length}
                   </span>
+                </h3>
+                {selectedTopic && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Filtered by: <strong className="text-indigo-600 dark:text-indigo-300">{selectedTopic}</strong> {selectedSubtopic && `› ${selectedSubtopic.subtopic}`}
+                  </p>
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
-                {/* Daily Revision Workload Limit Selector */}
-                <div className="flex items-center gap-1.5 bg-[#141826] px-3 py-1.5 rounded-xl border border-purple-500/30">
-                  <span className="text-xs text-gray-400 font-medium shrink-0">Daily Limit:</span>
-                  <select
-                    value={dailyRevisionLimit}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      setDailyRevisionLimit(val);
-                      localStorage.setItem('dailyRevisionLimit', val);
-                    }}
-                    className="bg-transparent text-xs font-bold text-purple-300 outline-none cursor-pointer"
-                    title="Set maximum problems due for revision per day. Excess problems are intelligently rescheduled based on difficulty & student level."
-                  >
-                    <option value={2} className="bg-[#141826] text-white">2 / day</option>
-                    <option value={3} className="bg-[#141826] text-white">3 / day</option>
-                    <option value={5} className="bg-[#141826] text-white">5 / day</option>
-                    <option value={10} className="bg-[#141826] text-white">10 / day</option>
-                    <option value={0} className="bg-[#141826] text-white">Unlimited</option>
-                  </select>
-                </div>
-
+              {/* View Mode Toggle Switcher */}
+              <div className="flex items-center gap-1.5 glass-panel p-1 rounded-xl">
                 <button
                   onClick={() => setViewMode('due')}
-                  className={`text-xs px-3 py-1.5 rounded-xl border transition-colors ${viewMode === 'due' ? 'bg-purple-600 text-white border-purple-500 font-medium' : 'bg-[#141826] text-gray-400 border-white/10 hover:text-white'}`}
+                  className={`text-xs px-3.5 py-1.5 rounded-lg font-medium transition-all ${
+                    viewMode === 'due' 
+                      ? 'bg-indigo-600 text-white shadow-sm' 
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
                 >
                   Due Today ({questions.length})
                 </button>
                 <button
                   onClick={() => setViewMode('all')}
-                  className={`text-xs px-3 py-1.5 rounded-xl border transition-colors ${viewMode === 'all' ? 'bg-purple-600 text-white border-purple-500 font-medium' : 'bg-[#141826] text-gray-400 border-white/10 hover:text-white'}`}
+                  className={`text-xs px-3.5 py-1.5 rounded-lg font-medium transition-all ${
+                    viewMode === 'all' 
+                      ? 'bg-indigo-600 text-white shadow-sm' 
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
                 >
-                  All Questions ({allQuestions.length})
+                  All ({allQuestions.length})
                 </button>
               </div>
             </div>
 
+            {/* QUESTIONS GRID: 2-COLUMN RESPONSIVE LAYOUT WITH PHYSICAL DEPTH ANIMATION */}
             {displayedQuestions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-gray-500 border border-dashed border-white/10 rounded-2xl p-6 text-center bg-[#141826]/40">
-                <CheckCircle2 className="w-12 h-12 mb-3 text-emerald-400" />
-                <p className="text-base font-bold text-white mb-1">
-                  {viewMode === 'due' && dailyRevisionLimit > 0 ? `🎉 All ${dailyRevisionLimit} daily target revision(s) completed!` : "No questions found in this view."}
-                </p>
-                <p className="text-xs text-gray-400 max-w-sm mb-4">
-                  {viewMode === 'due' ? "Awesome job staying consistent today! Want to practice random solved questions anyway?" : "Log a new question or clear active topic filters from the sidebar."}
-                </p>
-                <button
-                  onClick={handleRandomPractice}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs rounded-xl shadow-[0_0_15px_rgba(147,51,234,0.3)] transition-all transform hover:scale-105 active:scale-95"
-                >
-                  <Sparkles className="w-4 h-4 text-purple-200 animate-pulse" /> Start Practice Mode (Random Question)
-                </button>
+              <div className="glass-panel rounded-2xl p-8 text-center space-y-4">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                  <Trophy className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-slate-900 dark:text-white">All Caught Up for Today!</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+                    {viewMode === 'due' 
+                      ? "You've mastered all problems in your daily revision queue. Solid consistency!" 
+                      : "No problems found matching this filter criteria."}
+                  </p>
+                </div>
+                {viewMode === 'due' && (
+                  <button
+                    onClick={handleRandomPractice}
+                    className="px-4 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition-all shadow-sm"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Practice a Random Solved Question
+                  </button>
+                )}
               </div>
             ) : (
-              /* 2-COLUMN PROBLEM CARDS GRID MATCHING DASHBOARD.PNG */
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {displayedQuestions.map((q, idx) => {
+                {displayedQuestions.map((q) => {
+                  const isExpanded = expandedNotesId === q._id;
                   const isDueNow = new Date(q.nextReviewDate) <= new Date();
                   const tax = getTaxonomy(q);
 
                   return (
-                    <div key={q._id} className="p-5 rounded-2xl bg-[#141826]/80 border border-white/10 hover:border-purple-500/40 transition-all flex flex-col justify-between space-y-3 group shadow-lg">
+                    <div 
+                      key={q._id} 
+                      className="glass-panel-interactive rounded-2xl p-5 flex flex-col justify-between space-y-3 group cursor-default"
+                    >
                       <div>
-                        {/* Top Row: Problem # & Title + Due Badge */}
-                        <div className="flex justify-between items-start gap-2 mb-2">
-                          <h3 className="font-bold text-white text-base group-hover:text-purple-300 transition-colors flex items-center gap-1.5">
-                            <span>#{idx + 1}. {q.title}</span>
-                            {q.url && (
-                              <a 
-                                href={q.url} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                className="text-gray-400 hover:text-purple-300 transition-colors shrink-0"
-                                title="Open Problem Link"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </a>
+                        {/* Top Metadata Row: Tags + Difficulty Badge */}
+                        <div className="flex items-center justify-between gap-2 mb-2.5">
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 font-mono truncate max-w-[200px]">
+                            {tax.topic} • {tax.subtopic}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {renderDifficultyBadge(q.difficulty || 'Medium')}
+                            {isDueNow && (
+                              <span className="w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse" title="Due today" />
                             )}
-                          </h3>
-
-                          {isDueNow ? (
-                            <span className="shrink-0 text-xs font-semibold px-2.5 py-0.5 bg-red-500/20 text-red-300 border border-red-500/30 rounded-md">
-                              Due Today
-                            </span>
-                          ) : (
-                            <span className="shrink-0 text-xs font-semibold px-2.5 py-0.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-md">
-                              Due 2h
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Second Row: Difficulty Pill + Category Tag Badges */}
-                        <div className="flex gap-2 flex-wrap items-center mb-3">
-                          <span className={`text-xs px-2.5 py-0.5 rounded-md font-semibold border ${
-                            q.difficulty === 'Easy' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                            : q.difficulty === 'Hard' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-                            : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                          }`}>
-                            {q.difficulty || 'Medium'}
-                          </span>
-                          {tax.subtopic && (
-                            <span className="text-xs px-2.5 py-0.5 rounded-md font-semibold bg-purple-500/20 text-purple-300 border-purple-500/30">
-                              {tax.subtopic}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Third Row: Notes Snippet Preview */}
-                        <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed mb-3">
-                          {q.notes}
-                        </p>
-
-                        {/* Fourth Row: Tags & Percentage Metric */}
-                        <div className="flex items-center justify-between text-xs pt-2 border-t border-white/5">
-                          <div className="flex gap-1.5">
-                            <span className="px-2.5 py-0.5 bg-[#0b0e17] text-gray-300 rounded border border-white/10 text-[11px] font-medium">
-                              {tax.topic}
-                            </span>
-                            <span className="px-2.5 py-0.5 bg-[#0b0e17] text-gray-400 rounded border border-white/10 text-[11px]">
-                              Topics
-                            </span>
                           </div>
-                          <span className="text-xs font-mono font-semibold text-gray-300">
-                            65.2%
-                          </span>
                         </div>
-                      </div>
 
-                      {/* Fifth Row: Action Buttons matching dashboard.png */}
-                      <div className="flex items-center gap-2 pt-2">
-                        <button 
-                          onClick={() => openCodeViewer(q)}
-                          className="flex-1 text-xs py-2 px-3 bg-[#1e2438] hover:bg-[#283049] text-gray-200 border border-white/10 rounded-xl flex items-center justify-center gap-1.5 transition-colors font-medium"
-                          title="View Saved Solution Code"
-                        >
-                          <Code className="w-3.5 h-3.5 text-cyan-400" /> Solution Code
-                        </button>
+                        {/* Problem Title */}
+                        <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors flex items-center gap-1.5">
+                          <span>{q.title}</span>
+                          {q.url && (
+                            <a 
+                              href={q.url} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="text-slate-400 hover:text-indigo-600 dark:hover:text-white p-0.5"
+                              title="Open on LeetCode"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                        </h4>
 
-                        <button 
-                          onClick={() => openPlayground(q)}
-                          className="flex-1 text-xs py-2 px-3 bg-[#1e2438] hover:bg-[#283049] text-gray-200 border border-white/10 rounded-xl flex items-center justify-center gap-1.5 transition-colors font-medium"
-                          title="Open Practice Playground"
-                        >
-                          <FileCode className="w-3.5 h-3.5 text-emerald-400" /> Practice Code
-                        </button>
+                        {/* Spaced Repetition Metrics Bar */}
+                        <div className="flex items-center flex-wrap gap-2.5 mt-3 pt-2.5 border-t border-slate-200/60 dark:border-white/[0.05] text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                          <span>Due: <strong className="text-slate-800 dark:text-slate-200">{new Date(q.nextReviewDate).toLocaleDateString()}</strong></span>
+                          <span>Rep: <strong className="text-slate-800 dark:text-slate-200">{q.repetitions || 0}</strong></span>
+                          <span>EF: <strong className="text-slate-800 dark:text-slate-200">{q.easeFactor ? q.easeFactor.toFixed(1) : '2.5'}</strong></span>
+                          {q.priorityScore && (
+                            <span className="text-indigo-600 dark:text-indigo-400">Score: {Math.round(q.priorityScore)}</span>
+                          )}
+                        </div>
 
-                        <button 
-                          onClick={() => setExpandedNotesId(expandedNotesId === q._id ? null : q._id)}
-                          className="p-2 bg-[#1e2438] hover:bg-[#283049] text-gray-400 hover:text-white border border-white/10 rounded-xl transition-colors"
-                          title="AI Notes"
-                        >
-                          {expandedNotesId === q._id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                        </button>
+                        {/* AI Markdown Notes Drawer */}
+                        {(q.enhancedNotes || q.notes) && (
+                          <div className="mt-3 pt-2.5 border-t border-slate-200/60 dark:border-white/[0.05]">
+                            <div className="flex items-center justify-between">
+                              <button
+                                onClick={() => setExpandedNotesId(isExpanded ? null : q._id)}
+                                className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 flex items-center gap-1 font-medium"
+                              >
+                                {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                {isExpanded ? 'Hide Intuition & Notes' : 'View Intuition & Notes'}
+                              </button>
 
-                        <button 
-                          onClick={(e) => handleDeleteQuestion(q._id, e)}
-                          className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                              {isExpanded && q.enhancedNotes && (
+                                <div className="flex gap-1 text-[10px] font-mono">
+                                  <button
+                                    onClick={() => setNoteViewMode(prev => ({ ...prev, [q._id]: 'ai' }))}
+                                    className={`px-1.5 py-0.5 rounded ${noteViewMode[q._id] !== 'raw' ? 'bg-indigo-600 text-white font-bold' : 'text-slate-500 dark:text-slate-400'}`}
+                                  >
+                                    AI
+                                  </button>
+                                  <button
+                                    onClick={() => setNoteViewMode(prev => ({ ...prev, [q._id]: 'raw' }))}
+                                    className={`px-1.5 py-0.5 rounded ${noteViewMode[q._id] === 'raw' ? 'bg-indigo-600 text-white font-bold' : 'text-slate-500 dark:text-slate-400'}`}
+                                  >
+                                    Raw
+                                  </button>
+                                </div>
+                              )}
+                            </div>
 
-                        {isDueNow && (
-                          <button 
-                            onClick={() => setReviewingQuestion(q)}
-                            className="text-xs px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl font-medium transition-colors border border-white/10"
-                          >
-                            Review
-                          </button>
+                            {isExpanded && (
+                              <div className="mt-2.5 p-3 rounded-xl bg-slate-200/30 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] text-xs text-slate-700 dark:text-slate-300 max-h-56 overflow-y-auto leading-relaxed">
+                                {noteViewMode[q._id] === 'raw' ? (
+                                  <p className="whitespace-pre-wrap font-sans">{q.notes}</p>
+                                ) : (
+                                  <ReactMarkdown
+                                    components={{
+                                      h3: ({ node, ...props }) => <h3 className="text-xs font-bold text-indigo-600 dark:text-indigo-300 mt-2.5 mb-1 uppercase tracking-wider" {...props} />,
+                                      p: ({ node, ...props }) => <p className="mb-2 text-slate-700 dark:text-slate-300" {...props} />,
+                                      code: ({ node, inline, ...props }) => 
+                                        inline 
+                                          ? <code className="bg-slate-200 dark:bg-base-900 px-1 py-0.5 rounded font-mono text-indigo-600 dark:text-cyan-300 text-[11px]" {...props} />
+                                          : <code className="block bg-[#0e121e] p-2 rounded-lg font-mono text-cyan-300 text-[11px] overflow-x-auto my-1.5" {...props} />
+                                    }}
+                                  >
+                                    {q.enhancedNotes || q.notes}
+                                  </ReactMarkdown>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
 
-                      {/* Collapsible Notes Section */}
-                      {expandedNotesId === q._id && (
-                        <div className="mt-3 p-4 rounded-xl bg-[#0b0e17] border border-purple-500/20 space-y-3">
-                          <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                            <h4 className="text-xs font-semibold text-purple-400 uppercase tracking-wider">Solution Notes</h4>
-                            <div className="flex gap-1.5 items-center">
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); setNoteViewMode(prev => ({ ...prev, [q._id]: 'ai' })); }}
-                                className={`text-[11px] px-2 py-0.5 rounded-md transition-all ${(noteViewMode[q._id] || 'ai') === 'ai' ? 'bg-purple-600 text-white font-medium' : 'bg-[#141826] text-gray-400 hover:text-white'}`}
-                              >
-                                AI Guide
-                              </button>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); setNoteViewMode(prev => ({ ...prev, [q._id]: 'raw' })); }}
-                                className={`text-[11px] px-2 py-0.5 rounded-md transition-all ${(noteViewMode[q._id] || 'ai') === 'raw' ? 'bg-purple-600 text-white font-medium' : 'bg-[#141826] text-gray-400 hover:text-white'}`}
-                              >
-                                Raw Thoughts
-                              </button>
-                            </div>
-                          </div>
+                      {/* Actions Toolbar */}
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-200/70 dark:border-white/[0.08] mt-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setReviewingQuestion(q);
+                              setRecallText('');
+                              setGradeResult(null);
+                            }}
+                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-sm transition-all active:scale-[0.98]"
+                          >
+                            Review Recall
+                          </button>
 
-                          {(noteViewMode[q._id] || 'ai') === 'raw' ? (
-                            <div className="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed font-mono bg-[#141826] p-3 rounded-lg border border-white/5">
-                              {q.notes}
-                            </div>
-                          ) : (
-                            <div className="text-xs text-gray-200 leading-relaxed font-sans bg-[#141826]/90 p-4 rounded-xl border border-purple-500/20 shadow-inner">
-                              <ReactMarkdown
-                                components={{
-                                  h3: ({ node, ...props }) => <h3 className="text-xs font-bold text-purple-300 mt-3 mb-1.5 flex items-center gap-1.5 border-b border-purple-500/20 pb-1 uppercase tracking-wider" {...props} />,
-                                  p: ({ node, ...props }) => <p className="mb-2 text-gray-300 leading-relaxed" {...props} />,
-                                  ul: ({ node, ...props }) => <ul className="list-disc list-inside space-y-1 my-2 text-gray-300 pl-1" {...props} />,
-                                  li: ({ node, ...props }) => <li className="text-gray-300" {...props} />,
-                                  strong: ({ node, ...props }) => <strong className="font-semibold text-purple-200" {...props} />,
-                                  code: ({ node, inline, ...props }) => 
-                                    inline ? (
-                                      <code className="bg-purple-950/60 text-purple-300 px-1.5 py-0.5 rounded font-mono text-[11px] border border-purple-500/30" {...props} />
-                                    ) : (
-                                      <code className="block bg-[#0b0e17] text-emerald-300 p-3 rounded-lg font-mono text-[11px] my-2.5 overflow-x-auto border border-white/10" {...props} />
-                                    )
-                                }}
-                              >
-                                {q.enhancedNotes || "No enhanced notes available."}
-                              </ReactMarkdown>
-                            </div>
-                          )}
+                          <button
+                            onClick={() => openCodeViewer(q)}
+                            className="px-2.5 py-1.5 glass-input hover:bg-slate-200/40 dark:hover:bg-white/[0.06] text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium flex items-center gap-1 transition-all"
+                          >
+                            <Code className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Code</span>
+                          </button>
+
+                          <button
+                            onClick={() => openPlayground(q)}
+                            className="p-1.5 glass-input hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-300 hover:border-emerald-500/30 text-slate-500 dark:text-slate-400 rounded-lg transition-all"
+                            title="Open in Code Playground"
+                          >
+                            <Play className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                      )}
+
+                        <button
+                          onClick={(e) => handleDeleteQuestion(q._id, e)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all"
+                          title="Delete Question"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
               </div>
             )}
-          </div>
+          </section>
         </div>
       </main>
 
-      {/* --- SOLUTION CODE REVISION OVERLAY MODAL - MATCHING CODE_VIEWER.PNG --- */}
+      {/* ========================================================================= */}
+      {/* --- MODAL 1: SOLUTION CODE REVISION WINDOW --- */}
+      {/* ========================================================================= */}
       {viewingCodeQuestion && (
-        <div className="fixed inset-0 bg-[#07090f]/80 backdrop-blur-lg z-50 flex items-center justify-center p-4">
-          <div className="glass-panel w-full max-w-3xl rounded-3xl p-6 relative flex flex-col max-h-[90vh] shadow-[0_0_60px_rgba(99,102,241,0.2)] border border-white/15">
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="glass-panel max-w-4xl w-full rounded-2xl border border-indigo-500/30 p-5 sm:p-6 shadow-2xl flex flex-col max-h-[90vh] space-y-4">
             
-            {/* Modal Title Header matching code_viewer.png */}
-            <div className="text-center pb-4">
-              <h2 className="text-2xl font-bold text-white tracking-wide">
-                Solution Code & Quick Revision Overlay
-              </h2>
-            </div>
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.08] pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-indigo-600/15 border border-indigo-500/30 text-indigo-600 dark:text-indigo-300">
+                  <Code className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">{viewingCodeQuestion.title}</h3>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                    Language: <strong className="text-indigo-600 dark:text-indigo-400 uppercase">{viewingCodeQuestion.codeLanguage || 'cpp'}</strong>
+                  </span>
+                </div>
+              </div>
 
-            {/* Code Box Container with Top Right Action Buttons */}
-            <div className="bg-[#111827] rounded-2xl border border-white/10 p-4 space-y-3 flex-1 flex flex-col overflow-hidden">
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => openCodeInNewWindow(viewingCodeQuestion)}
+                  className="text-xs px-3 py-1.5 glass-input hover:bg-slate-200/40 dark:hover:bg-white/[0.06] text-slate-700 dark:text-slate-200 rounded-lg flex items-center gap-1.5 transition-colors font-medium"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Popout Window
+                </button>
+
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(viewingCodeQuestion.code || editCodeText);
+                    navigator.clipboard.writeText(viewingCodeQuestion.code || '');
                     setCopySuccess(true);
                     setTimeout(() => setCopySuccess(false), 2000);
                   }}
-                  className="text-xs px-3 py-1.5 bg-[#1f2937] hover:bg-[#374151] text-gray-200 rounded-lg border border-white/10 flex items-center gap-1.5 transition-colors font-medium"
+                  className={`text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1.5 transition-all font-medium ${
+                    copySuccess 
+                      ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40' 
+                      : 'glass-input text-slate-700 dark:text-slate-200 hover:bg-slate-200/40 dark:hover:bg-white/[0.06]'
+                  }`}
                 >
-                  {copySuccess ? <><Check className="w-3.5 h-3.5 text-emerald-400" /> Copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy Code</>}
+                  {copySuccess ? <Check className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copySuccess ? 'Copied!' : 'Copy Code'}
                 </button>
 
                 <button
-                  onClick={() => openCodeInNewWindow(viewingCodeQuestion)}
-                  className="text-xs px-3 py-1.5 bg-[#1f2937] hover:bg-[#374151] text-gray-200 rounded-lg border border-white/10 flex items-center gap-1.5 transition-colors font-medium"
+                  onClick={() => setViewingCodeQuestion(null)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" /> New Window
-                </button>
-
-                <button
-                  onClick={() => setIsEditingCode(!isEditingCode)}
-                  className="text-xs px-3 py-1.5 bg-[#1f2937] hover:bg-[#374151] text-gray-200 rounded-lg border border-white/10 flex items-center gap-1.5 transition-colors font-medium"
-                >
-                  <Edit3 className="w-3.5 h-3.5" /> Edit Code
-                </button>
-
-                <button onClick={() => setViewingCodeQuestion(null)} className="p-1.5 text-gray-400 hover:text-white">
                   <X className="w-5 h-5" />
                 </button>
               </div>
+            </div>
 
-              {/* Code viewer display */}
+            {/* Code Body */}
+            <div className="flex-1 overflow-y-auto space-y-3">
               {!isEditingCode ? (
-                <div className="flex-1 overflow-y-auto p-5 font-mono text-sm text-cyan-300 leading-relaxed whitespace-pre-wrap bg-[#0b0f19] rounded-xl border border-white/5">
-                  {viewingCodeQuestion.code || `#include <iostream>\nint main() {\n    // Simple C++ code\n    int a = 15;\n    int b = 10;\n    int sum = a + b;\n    std::cout << "The sum of " << a << " and " << b << " is " << sum << std::endl;\n    return 0;\n}`}
+                <div className="p-4 rounded-xl bg-[#0e121e] border border-slate-700/50 dark:border-white/[0.08] font-mono text-xs text-cyan-300 leading-relaxed overflow-x-auto">
+                  <pre>{viewingCodeQuestion.code || '// No solution code recorded for this question.'}</pre>
                 </div>
               ) : (
-                <div className="space-y-3 flex-1 flex flex-col">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Editing Code</label>
+                    <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">Edit Solution Code</span>
                     <select
-                      value={editCodeLang} onChange={(e) => setEditCodeLang(e.target.value)}
-                      className="bg-[#1f2937] text-xs text-white border border-white/10 rounded px-2 py-1 outline-none font-mono"
+                      value={editCodeLang}
+                      onChange={(e) => setEditCodeLang(e.target.value)}
+                      className="glass-input text-xs px-2.5 py-1 rounded-lg font-mono text-indigo-600 dark:text-indigo-300"
                     >
-                      <option value="cpp">C++</option>
-                      <option value="python">Python</option>
-                      <option value="java">Java</option>
-                      <option value="javascript">JavaScript</option>
-                      <option value="go">Go</option>
+                      <option value="cpp" className="bg-slate-50 dark:bg-[#141926] text-slate-900 dark:text-slate-100">C++</option>
+                      <option value="python" className="bg-slate-50 dark:bg-[#141926] text-slate-900 dark:text-slate-100">Python</option>
+                      <option value="java" className="bg-slate-50 dark:bg-[#141926] text-slate-900 dark:text-slate-100">Java</option>
+                      <option value="javascript" className="bg-slate-50 dark:bg-[#141926] text-slate-900 dark:text-slate-100">JavaScript</option>
+                      <option value="go" className="bg-slate-50 dark:bg-[#141926] text-slate-900 dark:text-slate-100">Go</option>
                     </select>
                   </div>
-
                   <textarea
-                    value={editCodeText} onChange={(e) => setEditCodeText(e.target.value)}
+                    value={editCodeText}
+                    onChange={(e) => setEditCodeText(e.target.value)}
                     onKeyDown={(e) => handleCodeKeyDown(e, editCodeText, setEditCodeText)}
-                    rows={10}
-                    className="w-full flex-1 bg-[#0b0f19] border border-amber-500/30 rounded-xl p-4 text-sm font-mono text-cyan-300 focus:border-amber-400 outline-none resize-none"
+                    rows={12}
+                    className="w-full p-4 rounded-xl bg-[#0e121e] border border-slate-700/50 dark:border-white/[0.08] font-mono text-xs text-cyan-300 focus:outline-none focus:border-indigo-500/50 resize-none leading-relaxed"
                   />
+                </div>
+              )}
 
-                  <button
-                    onClick={() => handleSaveEditedCode(viewingCodeQuestion._id)}
-                    className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-xs"
-                  >
-                    <Save className="w-4 h-4" /> Save Code Changes
-                  </button>
+              {/* Test Cases Preview */}
+              {viewingCodeQuestion.testCases && viewingCodeQuestion.testCases.length > 0 && !isEditingCode && (
+                <div className="p-3 rounded-xl bg-slate-200/30 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.05] space-y-2">
+                  <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider font-mono">
+                    Recorded Test Cases ({viewingCodeQuestion.testCases.length})
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {viewingCodeQuestion.testCases.map((tc, idx) => (
+                      <div key={idx} className="p-2 rounded bg-slate-200/50 dark:bg-base-900 text-xs font-mono border border-slate-300/30 dark:border-white/5">
+                        <div className="text-slate-500 dark:text-slate-400 text-[11px]">In: <span className="text-slate-800 dark:text-slate-200">{tc.input}</span></div>
+                        <div className="text-slate-500 dark:text-slate-400 text-[11px]">Exp: <span className="text-emerald-600 dark:text-emerald-400">{tc.expectedOutput}</span></div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Bottom Launch Button matching code_viewer.png */}
-            <div className="pt-5">
+            {/* Footer Actions */}
+            <div className="flex items-center justify-between border-t border-slate-200/80 dark:border-white/[0.08] pt-3">
               <button
-                onClick={() => {
-                  const q = viewingCodeQuestion;
-                  setViewingCodeQuestion(null);
-                  openPlayground(q);
-                }}
-                className="w-full py-3.5 px-4 bg-[#1e3a8a]/90 hover:bg-[#1e40af] text-white font-bold rounded-2xl border border-blue-500/40 shadow-lg flex items-center justify-center gap-2 transition-all"
+                onClick={() => setIsEditingCode(!isEditingCode)}
+                className="text-xs px-3.5 py-2 glass-input hover:bg-slate-200/40 dark:hover:bg-white/[0.06] text-slate-700 dark:text-slate-200 rounded-xl flex items-center gap-1.5 transition-colors font-medium"
               >
-                Launch Practice Playground
+                <Edit3 className="w-3.5 h-3.5" />
+                {isEditingCode ? 'Cancel Editing' : 'Edit Solution Code'}
               </button>
-            </div>
 
+              <div className="flex items-center gap-2">
+                {isEditingCode && (
+                  <button
+                    onClick={() => handleSaveEditedCode(viewingCodeQuestion._id)}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-all"
+                  >
+                    <Save className="w-3.5 h-3.5" /> Save Changes
+                  </button>
+                )}
+                
+                <button
+                  onClick={() => {
+                    const q = viewingCodeQuestion;
+                    setViewingCodeQuestion(null);
+                    openPlayground(q);
+                  }}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-indigo-600/20 transition-all"
+                >
+                  <Play className="w-3.5 h-3.5" /> Launch in Playground
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* --- INTERACTIVE PRACTICE PLAYGROUND & AI CODE EVALUATOR MODAL - MATCHING CODE_PLAYGROUND.PNG --- */}
+      {/* ========================================================================= */}
+      {/* --- MODAL 2: INTERACTIVE CODE PLAYGROUND --- */}
+      {/* ========================================================================= */}
       {playgroundQuestion && (
-        <div className="fixed inset-0 bg-[#07090f]/90 backdrop-blur-lg z-50 flex items-center justify-center p-4">
-          <div className="glass-panel w-full max-w-5xl rounded-3xl p-6 relative flex flex-col h-[90vh] shadow-[0_0_60px_rgba(16,185,129,0.2)] border border-emerald-500/30">
+        <div className="fixed inset-0 bg-black/65 dark:bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-6">
+          <div className="glass-panel max-w-6xl w-full h-[92vh] rounded-2xl border border-indigo-500/30 p-5 shadow-2xl flex flex-col overflow-hidden">
             
-            {/* Modal Header matching code_playground.png */}
-            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.08] pb-3">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-500/20 rounded-xl text-emerald-400 border border-emerald-500/30 font-mono text-xs font-bold">
-                  Two Sum
+                <div className="p-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                  <Play className="w-5 h-5" />
                 </div>
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  DSA Code Evaluator: <span className="text-gray-200">{playgroundQuestion.title}</span>
-                </h2>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    {playgroundQuestion.title}
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono">
+                      Playground
+                    </span>
+                  </h3>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Interactive Code Sandbox &amp; AI Compiler</span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
                 <button
                   onClick={handleRandomPractice}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 rounded-xl text-xs font-semibold transition-all"
-                  title="Switch to another random solved question"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600/15 hover:bg-indigo-600/25 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-semibold transition-all"
+                  title="Switch to another random question"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-purple-300" />
-                  Next Random Question
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Random Problem
                 </button>
-
-                <button onClick={() => setPlaygroundQuestion(null)} className="p-1.5 bg-[#1f2937] hover:bg-[#374151] text-gray-300 rounded-lg">
-                  <X className="w-4 h-4" />
+                <button
+                  onClick={() => setPlaygroundQuestion(null)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            {/* Split 2-Column Body */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 py-4 flex-1 overflow-hidden">
+            {/* Split Pane: Left Editor / Right Runner */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 py-4 flex-1 overflow-hidden">
               
-              {/* Left Column: C++ Solution Code Sandbox matching code_playground.png */}
-              <div className="lg:col-span-7 flex flex-col h-full space-y-3">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-sm font-bold text-white">C++ Solution</span>
-                  <span className="text-xs font-mono text-gray-400 flex items-center gap-1">
-                    <FileCode className="w-3.5 h-3.5 text-gray-400" /> TwoSum.cpp
+              {/* Left Column: Monaco-style Code Editor (7 cols) */}
+              <div className="lg:col-span-7 flex flex-col h-full rounded-xl bg-[#0e121e] border border-slate-700/50 dark:border-white/[0.08] overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 bg-[#141926] border-b border-white/[0.06]">
+                  <div className="flex items-center gap-1.5">
+                    {['cpp', 'python', 'java', 'javascript', 'go'].map((lang) => (
+                      <button
+                        key={lang}
+                        onClick={() => {
+                          setPlaygroundLang(lang);
+                          generateDynamicBoilerplate(playgroundQuestion, lang);
+                        }}
+                        className={`text-xs px-2.5 py-1 rounded-lg font-mono font-semibold uppercase transition-all ${
+                          playgroundLang === lang 
+                            ? 'bg-indigo-600 text-white shadow-sm' 
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        {lang}
+                      </button>
+                    ))}
+                  </div>
+
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    Tab: 4 spaces • Auto-brackets
                   </span>
                 </div>
 
-                <div className="flex-1 bg-[#0b0f19] border border-white/10 rounded-2xl overflow-hidden flex flex-col">
+                <div className="flex-1 relative overflow-hidden flex">
                   <textarea
                     value={playgroundCode}
                     onChange={(e) => setPlaygroundCode(e.target.value)}
@@ -1314,177 +1602,204 @@ function App() {
                     className="w-full flex-1 bg-transparent p-4 text-xs font-mono text-cyan-300 focus:outline-none resize-none leading-relaxed"
                   />
                 </div>
+              </div>
 
-                {/* Prominent Vivid Green RUN CODE Button matching code_playground.png */}
+              {/* Right Column: Test Cases & AI Grader Console (5 cols) */}
+              <div className="lg:col-span-5 flex flex-col h-full space-y-3 overflow-y-auto">
+                
+                {/* Run Button */}
                 <button
                   onClick={handleRunCodeEvaluator}
                   disabled={isGradingCode}
-                  className="w-full bg-[#10b981] hover:bg-[#059669] disabled:opacity-50 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-between shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all"
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 disabled:opacity-50 transition-all active:scale-[0.98]"
                 >
-                  <div className="flex items-center gap-2">
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>RUN CODE</span>
-                  </div>
-                  <ExternalLink className="w-4 h-4" />
+                  {isGradingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />}
+                  {isGradingCode ? 'Running & Evaluating Logic...' : 'Run with AI Compiler'}
                 </button>
-              </div>
 
-              {/* Right Column: Evaluation Results Panel matching code_playground.png */}
-              <div className="lg:col-span-5 flex flex-col h-full space-y-4 overflow-y-auto pr-1">
-                
-                <div className="bg-[#141826]/90 border border-white/10 rounded-2xl p-4 space-y-4">
-                  {/* Section 1: Evaluation Results */}
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Evaluation Results</h4>
-                    <div className="w-full py-3 bg-[#10b981]/90 text-white font-bold text-center rounded-xl text-lg flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.5)]">
-                      <Check className="w-5 h-5 stroke-[3]" /> 100% PASSED
-                    </div>
+                {/* Test Cases Editor */}
+                <div className="p-3.5 rounded-xl bg-slate-200/30 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono">
+                      Test Cases
+                    </span>
+                    <button
+                      onClick={() => handleAddTestCase(setPlaygroundTestCases)}
+                      className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Case
+                    </button>
                   </div>
 
-                  {/* Section 2: Complexity Metrics */}
-                  <div className="pt-3 border-t border-white/10">
-                    <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Complexity Metrics</h4>
-                    <div className="flex items-center gap-3 text-xs font-medium text-emerald-400 mb-2">
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400"></span> O(N) Time</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400"></span> O(N) Space</span>
-                    </div>
-                    <div className="text-xs text-gray-300 space-y-1 font-mono">
-                      <p>Runtime: <span className="text-white font-semibold">32 ms</span> <span className="text-gray-400">(Beats 98.4%)</span></p>
-                      <p>Memory: <span className="text-white font-semibold">11.2 MB</span> <span className="text-gray-400">(Beats 95.1%)</span></p>
-                    </div>
-                  </div>
-
-                  {/* Section 3: Test Cases */}
-                  <div className="pt-3 border-t border-white/10">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wider">Test Cases</h4>
-                      <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
-                        3 passed <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                      </span>
-                    </div>
-
-                    <div className="space-y-2 text-xs font-mono">
-                      <div className="p-2.5 bg-[#0b0f19] rounded-xl border border-white/5 space-y-1">
-                        <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                          <span className="w-4 h-4 rounded bg-emerald-500/20 flex items-center justify-center text-[10px]">1</span>
-                          <span>(Passed)</span>
+                  <div className="space-y-2">
+                    {playgroundTestCases.map((tc, idx) => (
+                      <div key={idx} className="p-2.5 rounded-lg bg-slate-200/50 dark:bg-base-900/90 border border-slate-300/30 dark:border-white/[0.05] space-y-1.5 text-xs font-mono">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400 text-[10px]">Case #{idx + 1}</span>
+                          <button
+                            onClick={() => handleRemoveTestCase(idx, setPlaygroundTestCases)}
+                            className="text-slate-400 hover:text-rose-500"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
                         </div>
-                        <p className="text-gray-400">Input: <span className="text-white">nums=[2,7,11,15], target=9</span></p>
-                        <p className="text-gray-400">Output: <span className="text-white">[0,1]</span></p>
+                        <input
+                          value={tc.input}
+                          onChange={(e) => handleTestCaseChange(idx, 'input', e.target.value, setPlaygroundTestCases)}
+                          placeholder="Input (e.g. nums=[2,7,11,15], target=9)"
+                          className="w-full glass-input text-xs px-2 py-1 rounded"
+                        />
+                        <input
+                          value={tc.expectedOutput}
+                          onChange={(e) => handleTestCaseChange(idx, 'expectedOutput', e.target.value, setPlaygroundTestCases)}
+                          placeholder="Expected Output (e.g. [0,1])"
+                          className="w-full glass-input text-xs px-2 py-1 rounded"
+                        />
                       </div>
-
-                      <div className="p-2.5 bg-[#0b0f19] rounded-xl border border-white/5 space-y-1">
-                        <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                          <span className="w-4 h-4 rounded bg-emerald-500/20 flex items-center justify-center text-[10px]">2</span>
-                          <span>(Passed)</span>
-                        </div>
-                        <p className="text-gray-400">Input: <span className="text-white">nums=[3,2,4], target=6</span></p>
-                        <p className="text-gray-400">Output: <span className="text-white">[1,2]</span></p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Section 4: AI Feedback & Optimization */}
-                  <div className="pt-3 border-t border-white/10">
-                    <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      🤖 AI Feedback & Optimization
-                    </h4>
-                    <p className="text-xs text-gray-300 leading-relaxed bg-[#0b0f19] p-3 rounded-xl border border-white/5">
-                      {codeEvaluationResult?.feedback || "Great job! Your solution is optimally efficient with O(N) time complexity using a hash map. It handles edge cases and passes all tests flawlessly."}
-                    </p>
+                    ))}
                   </div>
                 </div>
 
+                {/* Console Output & Evaluation Card */}
+                {codeEvaluationResult && (
+                  <div className="p-3.5 rounded-xl bg-slate-200/30 dark:bg-slate-900/70 border border-indigo-500/20 space-y-3 font-mono text-xs">
+                    <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/[0.08] pb-2">
+                      <span className="font-bold text-slate-800 dark:text-slate-300">Execution Status</span>
+                      <span className={`px-2 py-0.5 rounded font-bold ${
+                        codeEvaluationResult.passed 
+                          ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40' 
+                          : 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40'
+                      }`}>
+                        {codeEvaluationResult.passed ? 'ALL PASSED' : 'TEST FAILED'}
+                      </span>
+                    </div>
+
+                    {codeEvaluationResult.complexity && (
+                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                        <div className="p-2 rounded bg-slate-200/50 dark:bg-base-900 border border-slate-300/30 dark:border-white/5">
+                          <span className="text-slate-500 block">Time Complexity</span>
+                          <strong className="text-indigo-600 dark:text-indigo-300">{codeEvaluationResult.complexity.time || 'O(N)'}</strong>
+                        </div>
+                        <div className="p-2 rounded bg-slate-200/50 dark:bg-base-900 border border-slate-300/30 dark:border-white/5">
+                          <span className="text-slate-500 block">Space Complexity</span>
+                          <strong className="text-purple-600 dark:text-purple-300">{codeEvaluationResult.complexity.space || 'O(1)'}</strong>
+                        </div>
+                      </div>
+                    )}
+
+                    {codeEvaluationResult.feedback && (
+                      <div className="p-2.5 rounded bg-slate-200/40 dark:bg-base-900/80 border border-slate-300/30 dark:border-white/5 text-slate-700 dark:text-slate-300 font-sans text-xs">
+                        <ReactMarkdown>{codeEvaluationResult.feedback}</ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-
           </div>
         </div>
       )}
 
-      {/* --- THE AI RECALL REVIEW MODAL --- */}
+      {/* ========================================================================= */}
+      {/* --- MODAL 3: THE AI RECALL REVIEW MODAL --- */}
+      {/* ========================================================================= */}
       {reviewingQuestion && (
-        <div className="fixed inset-0 bg-[#07090f]/90 backdrop-blur-lg z-50 flex items-center justify-center p-4">
-          <div className="glass-panel w-full max-w-2xl rounded-3xl p-6 relative flex flex-col max-h-[90vh] shadow-[0_0_50px_rgba(147,51,234,0.15)] border border-purple-500/30">
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="glass-panel max-w-2xl w-full rounded-2xl border border-indigo-500/30 p-6 shadow-2xl space-y-5">
             
-            {!gradeResult && (
-              <button onClick={closeReview} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white transition-colors">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.08] pb-3">
+              <div>
+                <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider font-mono">
+                  Active Recall Challenge
+                </span>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">{reviewingQuestion.title}</h3>
+              </div>
+              <button
+                onClick={closeReview}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg"
+              >
                 <X className="w-5 h-5" />
               </button>
-            )}
-
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                Review: <span className="text-purple-400">{reviewingQuestion.title}</span>
-                {reviewingQuestion.url && (
-                  <a 
-                    href={reviewingQuestion.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="text-gray-400 hover:text-purple-400 transition-colors"
-                    title="Open Problem Link"
-                  >
-                    <ExternalLink className="w-5 h-5" />
-                  </a>
-                )}
-              </h2>
             </div>
-            
+
             {!gradeResult ? (
-              <>
-                <p className="text-gray-400 mb-6 text-sm">
-                  Explain the core logic, pattern, and your "Aha! moment". Your AI buddy is ready to grade you!
+              <div className="space-y-4">
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-sans">
+                  Explain the core approach, data structures, and boundary edge cases from memory. Your AI tutor will evaluate your recall and adjust your SuperMemo-2 spaced repetition schedule!
                 </p>
+
                 <textarea
                   value={recallText}
                   onChange={(e) => setRecallText(e.target.value)}
-                  placeholder="e.g. Dude, this one was a sliding window..."
-                  className="w-full bg-[#141826] border border-white/10 rounded-2xl p-4 text-white h-48 focus:border-purple-500 outline-none resize-none mb-4"
+                  rows={6}
+                  placeholder="e.g. We use a Monotonic Decreasing Stack. We iterate through the array and while current element is greater than stack top, we pop and record the day distance..."
+                  className="w-full glass-input rounded-xl p-3.5 text-xs sm:text-sm font-sans resize-none leading-relaxed"
                 />
-                
-                <button
-                  onClick={submitRecall}
-                  disabled={isGrading || !recallText.trim()}
-                  className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(147,51,234,0.3)]"
-                >
-                  {isGrading ? (
-                    <><Loader2 className="w-5 h-5 animate-spin" /> AI is reading your logic...</>
-                  ) : (
-                    <><CheckCircle2 className="w-5 h-5" /> Submit for Feedback</>
-                  )}
-                </button>
-              </>
-            ) : (
-              <div className="space-y-6 mt-4">
-                <div className="p-6 rounded-2xl bg-[#141826] border border-white/10 text-center relative overflow-hidden">
-                  <div className="text-5xl font-bold text-purple-400 mb-2">{gradeResult.score} <span className="text-2xl text-gray-500">/ 5</span></div>
-                  <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold mb-3">SM-2 Spaced Repetition Score</p>
-                  
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium rounded-full">
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    Rescheduled: Next due in {gradeResult.interval || 1} day{gradeResult.interval > 1 ? 's' : ''} (Removed from daily queue)
+
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                    {recallText.trim().length} chars (minimum 15 recommended)
+                  </span>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={closeReview}
+                      className="px-4 py-2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={submitRecall}
+                      disabled={isGrading || recallText.trim().length < 5}
+                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 disabled:opacity-50 transition-all flex items-center gap-2 active:scale-[0.98]"
+                    >
+                      {isGrading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      {isGrading ? 'Grading Recall...' : 'Submit to AI Tutor'}
+                    </button>
                   </div>
                 </div>
-                
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">AI Buddy Feedback</h3>
-                  <p className="text-gray-300 leading-relaxed p-4 bg-white/5 rounded-xl border border-white/5 text-sm">{gradeResult.feedback}</p>
+              </div>
+            ) : (
+              /* Grade Result View */
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-slate-200/30 dark:bg-slate-900/70 border border-indigo-500/20 flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">SM-2 Spaced Repetition Grade</span>
+                    <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 font-mono mt-0.5">
+                      {gradeResult.score} / 5
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-semibold rounded-full">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      Next due in {gradeResult.interval || 1} day{gradeResult.interval > 1 ? 's' : ''}
+                    </span>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-mono">Removed from today&apos;s active queue</p>
+                  </div>
                 </div>
-                
-                <button
-                  onClick={closeReview}
-                  className="w-full bg-white hover:bg-gray-200 text-black font-bold py-3 rounded-xl transition-colors mt-4"
-                >
-                  Continue
-                </button>
+
+                <div className="p-4 rounded-xl bg-slate-200/30 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] text-xs text-slate-700 dark:text-slate-200 font-sans leading-relaxed max-h-60 overflow-y-auto">
+                  <ReactMarkdown>{gradeResult.feedback}</ReactMarkdown>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={closeReview}
+                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+                  >
+                    Done &amp; Return to Dashboard
+                  </button>
+                </div>
               </div>
             )}
-            
           </div>
         </div>
       )}
 
     </div>
+    </>
   );
 }
 

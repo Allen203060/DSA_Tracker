@@ -1,54 +1,165 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* Premium Dark Theme Color Palette */
-  --color-base-950: #0b0e17;
-  --color-base-900: #0f131f;
-  --color-base-850: #141826;
-  --color-base-800: #1a1f33;
-  --color-base-700: #242a42;
+  /* Font Families */
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Base Shades (Tailwind v4 tokens) - Sleek Deep Obsidian Black */
+  --color-base-950: #040508;
+  --color-base-900: #07090e;
+  --color-base-850: #0d111a;
+  --color-base-800: #141a28;
+
+  /* Brand Primary Accents */
   --color-brand-400: #818cf8;
   --color-brand-500: #6366f1;
   --color-brand-600: #4f46e5;
   --color-accent: #f43f5e;
-  
-  /* Glassmorphism Utilities */
-  --blur-glass: blur(16px);
+}
+
+:root {
+  /* Clean Minimalist Light Mode with Translucent Optical Refraction */
+  --bg-canvas: #f4f6fb;
+  --bg-surface: rgba(255, 255, 255, 0.82);
+  --bg-surface-hover: rgba(255, 255, 255, 0.94);
+  --bg-input: #ffffff;
+  --bg-inset: #0e121e;
+  --border-subtle: rgba(226, 232, 240, 0.85);
+  --border-interactive: rgba(99, 102, 241, 0.45);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --panel-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.04), 0 10px 24px -5px rgba(99, 102, 241, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --panel-hover-shadow: 0 16px 36px -10px rgba(99, 102, 241, 0.16), 0 4px 14px -3px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 1);
+  --glow-radial-1: rgba(99, 102, 241, 0.07);
+  --glow-radial-2: rgba(2, 132, 199, 0.05);
+}
+
+.dark {
+  /* Deep Cosmic Obsidian Black Mode */
+  --bg-canvas: #07090e;
+  --bg-surface: rgba(13, 17, 26, 0.82);
+  --bg-surface-hover: rgba(20, 26, 40, 0.92);
+  --bg-input: rgba(10, 13, 20, 0.92);
+  --bg-inset: #040508;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-interactive: rgba(99, 102, 241, 0.45);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --panel-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.6), 0 12px 32px -6px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  --panel-hover-shadow: 0 22px 46px -8px rgba(99, 102, 241, 0.28), 0 6px 20px -4px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  --glow-radial-1: rgba(99, 102, 241, 0.14);
+  --glow-radial-2: rgba(56, 189, 248, 0.09);
 }
 
 body {
-  background-color: #0b0e17;
-  color: #e2e8f0;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
   min-height: 100vh;
   background-image: 
-    radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.08), transparent 35%),
-    radial-gradient(circle at 85% 80%, rgba(16, 185, 129, 0.06), transparent 35%);
+    radial-gradient(circle at 20% 15%, var(--glow-radial-1), transparent 45%),
+    radial-gradient(circle at 80% 85%, var(--glow-radial-2), transparent 45%);
   background-attachment: fixed;
+  overflow-x: hidden;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* Custom Glass Container Class */
+/* Custom Glass Panels with Dynamic Theming */
 @utility glass-panel {
-  background: rgba(20, 24, 38, 0.75);
+  background: var(--bg-surface);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--panel-shadow);
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Smooth Custom Scrollbar */
+/* Tactile Depth Card Animation */
+@utility glass-panel-interactive {
+  background: var(--bg-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--panel-shadow);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.28s ease,
+              background-color 0.28s ease;
+  position: relative;
+  will-change: transform, box-shadow;
+
+  &:hover {
+    background: var(--bg-surface-hover);
+    border-color: var(--border-interactive);
+    box-shadow: var(--panel-hover-shadow);
+    transform: translateY(-4px) scale(1.008);
+  }
+
+  &:active {
+    transform: translateY(-1px) scale(0.996);
+  }
+}
+
+/* Minimalist Themed Inputs */
+@utility glass-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  outline: none;
+  transition: all 0.15s ease-out;
+
+  &:focus {
+    border-color: rgba(99, 102, 241, 0.5);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  }
+}
+
+/* View Transitions API Radial Reveal Choreography */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+/* Prevent CSS transitions from conflicting with View Transitions snapshot */
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition: none !important;
+}
+
+/* Custom Minimal Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(15, 19, 31, 0.6);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(148, 163, 184, 0.4);
 }
 
+/* Accessibility Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
