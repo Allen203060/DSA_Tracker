@@ -5,14 +5,44 @@ import {
   BrainCircuit, Loader2, X, List, 
   ChevronDown, ChevronUp, Trash2, ExternalLink, Layers, Folder, 
   ChevronRight, Flame, Trophy, Activity, Code, Play, Copy, Check, 
-  Plus, RotateCcw, Sparkles, CheckCircle, Edit3, Save, Sun, Moon 
+  Plus, RotateCcw, Sparkles, CheckCircle, Edit3, Save, Sun, Moon,
+  User as UserIcon, LogOut, Key, ShieldCheck, UserPlus
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import ThreeBackground from './components/ThreeBackground';
 
+// Base API URL configuration for cloud deployment (e.g. DigitalOcean / Heroku) vs local proxy
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
+
+// Attach JWT Bearer token to all outgoing API requests
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('revalgo_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 function App() {
   const [questions, setQuestions] = useState([]);
   const [allQuestions, setAllQuestions] = useState([]);
+  
+  // Multi-User Authentication State
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('revalgo_user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
+  const [authUsername, setAuthUsername] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authDisplayName, setAuthDisplayName] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
   
   // Theme State: 'dark' (softer dark) or 'light'
   const [theme, setTheme] = useState(() => {
@@ -212,6 +242,9 @@ function App() {
       setAllQuestions(allRes.data);
       setQuestions(viewMode === 'due' ? dueRes.data : allRes.data);
     } catch (error) {
+      if (error.response?.status === 401) {
+        setIsAuthModalOpen(true);
+      }
       console.error("Failed to fetch questions", error);
     }
   };
@@ -221,14 +254,89 @@ function App() {
       const res = await axios.get('/api/analytics/activity');
       setActivityData(res.data);
     } catch (error) {
+      if (error.response?.status === 401) {
+        setIsAuthModalOpen(true);
+      }
       console.error("Failed to fetch activity stats", error);
     }
   };
 
+  // Verify stored token on initial mount
   useEffect(() => {
-    fetchQuestions();
-    fetchActivityStats();
-  }, [viewMode, dailyRevisionLimit]);
+    const token = localStorage.getItem('revalgo_token');
+    if (token) {
+      axios.get('/api/auth/me')
+        .then((res) => {
+          setCurrentUser(res.data.user);
+          localStorage.setItem('revalgo_user', JSON.stringify(res.data.user));
+        })
+        .catch(() => {
+          localStorage.removeItem('revalgo_token');
+          localStorage.removeItem('revalgo_user');
+          setCurrentUser(null);
+          setIsAuthModalOpen(true);
+        });
+    } else {
+      setIsAuthModalOpen(true);
+    }
+  }, []);
+
+  // Sync data whenever active user, viewMode, or revision limit updates
+  useEffect(() => {
+    if (currentUser) {
+      fetchQuestions();
+      fetchActivityStats();
+    } else {
+      setQuestions([]);
+      setAllQuestions([]);
+      setActivityData({ dailyActivity: {}, stats: { currentStreak: 0, longestStreak: 0, totalNew: 0, totalRecalls: 0 } });
+    }
+  }, [currentUser, viewMode, dailyRevisionLimit]);
+
+  const handleAuthSubmit = async (e) => {
+    if (e) e.preventDefault();
+    setAuthError('');
+    setAuthLoading(true);
+
+    try {
+      const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
+      const payload = authMode === 'login' 
+        ? { username: authUsername, password: authPassword }
+        : { username: authUsername, password: authPassword, displayName: authDisplayName || authUsername };
+
+      const res = await axios.post(endpoint, payload);
+      const { user, token } = res.data;
+
+      localStorage.setItem('revalgo_token', token);
+      localStorage.setItem('revalgo_user', JSON.stringify(user));
+      setCurrentUser(user);
+      setIsAuthModalOpen(false);
+      setAuthPassword('');
+      setAuthError('');
+    } catch (err) {
+      setAuthError(err.response?.data?.error || 'Authentication failed. Please verify credentials.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('revalgo_token');
+    localStorage.removeItem('revalgo_user');
+    setCurrentUser(null);
+    setQuestions([]);
+    setAllQuestions([]);
+    setActivityData({ dailyActivity: {}, stats: { currentStreak: 0, longestStreak: 0, totalNew: 0, totalRecalls: 0 } });
+    setAuthMode('login');
+    setIsAuthModalOpen(true);
+  };
+
+  const handleQuickLoginAllen = () => {
+    setAuthUsername('allen');
+    setAuthPassword('allen123');
+    setAuthMode('login');
+    setAuthError('');
+  };
 
   // Global Escape key listener to close active modals
   useEffect(() => {
@@ -287,7 +395,7 @@ function App() {
           <div class="lang">${(question.codeLanguage || 'cpp')}</div>
         </div>
         <div class="code-container"><code>${(question.code || '// No solution code recorded for this question.').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></div>
-        <div class="footer">DSA Tracker • Spaced Repetition Algorithmic Revision</div>
+        <div class="footer">Revalgo • Spaced Repetition Algorithmic Revision</div>
       </body>
       </html>
     `;
@@ -687,7 +795,7 @@ function App() {
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-              DSA Tracker
+              Revalgo
               <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20">
                 Spaced Repetition
               </span>
@@ -749,6 +857,28 @@ function App() {
               )}
             </div>
           </button>
+
+          {/* User Account / Peer Switcher */}
+          {currentUser ? (
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl glass-input hover:border-indigo-500/40 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-all shadow-sm active:scale-[0.98]"
+              title="Click to view profile, switch account, or log out"
+            >
+              <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-[10px] text-white font-bold shadow-sm">
+                {currentUser.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U'}
+              </div>
+              <span className="max-w-[100px] truncate">{currentUser.displayName || currentUser.username}</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => { setAuthMode('login'); setIsAuthModalOpen(true); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20 transition-all active:scale-[0.98]"
+            >
+              <UserIcon className="w-3.5 h-3.5" />
+              Sign In
+            </button>
+          )}
         </div>
       </header>
 
@@ -1792,6 +1922,193 @@ function App() {
                     Done &amp; Return to Dashboard
                   </button>
                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- MULTI-USER AUTHENTICATION & PEER SWITCHER MODAL --- */}
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in">
+          <div className="glass-panel w-full max-w-md rounded-2xl p-6 sm:p-7 shadow-2xl border border-slate-200/40 dark:border-white/[0.08] relative">
+            {/* Close button only visible if user is already logged in */}
+            {currentUser && (
+              <button
+                onClick={() => setIsAuthModalOpen(false)}
+                className="absolute top-5 right-5 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-all"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+
+            {currentUser ? (
+              /* --- LOGGED IN PROFILE VIEW --- */
+              <div className="space-y-5">
+                <div className="flex items-center gap-3 border-b border-slate-200/80 dark:border-white/[0.06] pb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold shadow-md shadow-indigo-500/20">
+                    {currentUser.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      {currentUser.displayName || currentUser.username}
+                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        Active
+                      </span>
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">@{currentUser.username}</p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed flex items-start gap-2.5">
+                  <ShieldCheck className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                  <span>
+                    Your questions, spaced repetition intervals, and streak heatmaps are securely isolated to this account.
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setAuthMode('register');
+                      setAuthUsername('');
+                      setAuthPassword('');
+                      setAuthDisplayName('');
+                      setAuthError('');
+                      // Temporarily switch modal mode
+                    }}
+                    className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/[0.1] hover:bg-slate-100 dark:hover:bg-white/[0.05] text-xs font-semibold text-slate-700 dark:text-slate-200 transition-all"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    New Peer
+                  </button>
+
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-xs font-semibold text-rose-600 dark:text-rose-400 transition-all"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* --- SIGN IN / REGISTER FORM --- */
+              <div className="space-y-5">
+                <div className="text-center space-y-1">
+                  <div className="inline-flex p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 mb-2">
+                    <BrainCircuit className="w-7 h-7" />
+                  </div>
+                  <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                    {authMode === 'login' ? 'Welcome to Revalgo' : 'Create Peer Account'}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {authMode === 'login' 
+                      ? 'Sign in to access your spaced repetition queue & algorithm notes' 
+                      : 'Get your own isolated revision queue & personalized AI buddy'}
+                  </p>
+                </div>
+
+                {/* Tab Switcher */}
+                <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-200/60 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] text-xs font-medium">
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                    className={`py-1.5 rounded-lg transition-all ${authMode === 'login' ? 'bg-white dark:bg-indigo-600 text-slate-900 dark:text-white shadow-sm font-semibold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('register'); setAuthError(''); }}
+                    className={`py-1.5 rounded-lg transition-all ${authMode === 'register' ? 'bg-white dark:bg-indigo-600 text-slate-900 dark:text-white shadow-sm font-semibold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                  >
+                    Create Account
+                  </button>
+                </div>
+
+                {/* Quick 1-Click Allen Helper (For rapid demo and testing) */}
+                {authMode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={handleQuickLoginAllen}
+                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-indigo-500/15 to-purple-500/15 hover:from-indigo-500/25 hover:to-purple-500/25 border border-indigo-500/30 text-xs font-medium text-indigo-600 dark:text-indigo-300 flex items-center justify-between transition-all"
+                  >
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                      Quick Demo: Fill Allen&apos;s Account
+                    </span>
+                    <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">78 questions</span>
+                  </button>
+                )}
+
+                {/* Error Banner */}
+                {authError && (
+                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-medium">
+                    {authError}
+                  </div>
+                )}
+
+                <form onSubmit={handleAuthSubmit} className="space-y-3.5">
+                  {authMode === 'register' && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
+                        Display Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Allen or Sarah"
+                        value={authDisplayName}
+                        onChange={(e) => setAuthDisplayName(e.target.value)}
+                        className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Username
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. allen or bob"
+                      value={authUsername}
+                      onChange={(e) => setAuthUsername(e.target.value)}
+                      className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={authPassword}
+                      onChange={(e) => setAuthPassword(e.target.value)}
+                      className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold rounded-xl text-xs transition-all shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 mt-2"
+                  >
+                    {authLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Key className="w-3.5 h-3.5" />
+                        {authMode === 'login' ? 'Sign In' : 'Create Peer Account'}
+                      </>
+                    )}
+                  </button>
+                </form>
               </div>
             )}
           </div>

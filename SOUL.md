@@ -1,4 +1,4 @@
-# Project Soul: DSA Tracker & Spaced Repetition App
+# Project Soul: Revalgo — AI-Powered Spaced Repetition Platform
 
 ## Core Architecture
 - **Stack**: MERN (MongoDB, Express.js, React, Node.js)
@@ -75,6 +75,12 @@
   - **Atmospheric Volumetric Depth Fog**: Added `THREE.FogExp2` (`#07090e` in dark, `#f4f6fb` in light) causing distant nodes to naturally dissolve into atmospheric depth while foreground nodes remain razor sharp.
   - **Multi-Plane 3D Z-Depth & Parallax Orbit**: Expanded Z-bounds to 300 with differential velocity weighting, size attenuation (`5.4px - 6.2px`), and pitch/yaw camera orbit responding to mouse position in 3D space.
   - **High-Contrast Light Mode Overhaul**: Solved light mode invisibility by implementing saturated jewel-tone vertex colors (`#4338ca` indigo, `#0369a1` sky blue, `#0f766e` teal, `#1e293b` slate) combined with pure alpha-mask particle textures, `0.82` node opacity, and `0.38` line opacity with dynamic color attribute synchronization on theme change.
+- **Phase 17: Multi-User Authentication, Tenant Isolation & Safe Data Migration**:
+  - **User & Auth Architecture**: Implemented JWT-based stateless authentication (`jsonwebtoken`) with `bcryptjs` password hashing, establishing `User` model with unique normalized usernames.
+  - **Data Safety & Allen's Question Migration**: Built `server/src/utils/bootstrapUser.js` that automatically initializes account `Allen` (`@allen`) upon database connection and safely migrated all 78 unassigned historical questions under Allen's `userId`.
+  - **Complete Tenant Isolation**: Added `userId` foreign index to `Question` schema and updated all controllers (`addQuestion`, `getDueQuestions`, `getAllQuestions`, `getRandomQuestion`, `reviewQuestion`, `updateQuestion`, `deleteQuestion`, `getActivityStats`) to strictly scope queries and mutations to `req.user._id`.
+  - **Frontend Auth & Peer Management**: Created dynamic Axios JWT request interceptor (`localStorage`), active user header chip with avatar, and a glassmorphism Authentication & Peer Switcher modal supporting both peer registration and rapid 1-click Allen demo login.
+  - **Deployment Readiness**: Added production CORS configuration in `server/src/app.js` with `CLIENT_URL` support, and expanded test coverage with 8 passing integration tests.
 
 ## Next Logical Steps
 1. 3D Knowledge Graph (`react-force-graph`) to visualize pattern dependencies.

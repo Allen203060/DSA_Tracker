@@ -1,6 +1,9 @@
 import Question from '../models/Question.js';
 import Pattern from '../models/Pattern.js';
 
+// Helper to filter queries by active authenticated user
+const getUserFilter = (req) => (req.user ? { userId: req.user._id } : {});
+
 // CREATE Question
 export const addQuestion = async (req, res) => {
   try {
@@ -35,7 +38,8 @@ export const addQuestion = async (req, res) => {
       codeLanguage: codeLanguage || 'cpp',
       testCases: Array.isArray(testCases) ? testCases : [],
       interval: 1,
-      nextReviewDate: initialReviewDate
+      nextReviewDate: initialReviewDate,
+      userId: req.user?._id
     });
 
     res.status(201).json(newQuestion);
@@ -51,6 +55,7 @@ export const getDueQuestions = async (req, res) => {
     const limit = parseInt(req.query.limit) || 0; // 0 or undefined = unlimited
 
     let questions = await Question.find({
+      ...getUserFilter(req),
       nextReviewDate: { $lte: today }
     }).populate('patterns');
 
@@ -74,6 +79,7 @@ export const getDueQuestions = async (req, res) => {
       startOfDay.setHours(0, 0, 0, 0);
 
       const reviewsCompletedToday = await Question.countDocuments({
+        ...getUserFilter(req),
         'reviewHistory.reviewedAt': { $gte: startOfDay }
       });
 
@@ -90,11 +96,12 @@ export const getDueQuestions = async (req, res) => {
 // GET a Random Solved Question for Practice Mode
 export const getRandomQuestion = async (req, res) => {
   try {
-    const count = await Question.countDocuments();
+    const filter = getUserFilter(req);
+    const count = await Question.countDocuments(filter);
     if (count === 0) return res.status(404).json({ message: "No questions logged yet" });
 
     const randomIndex = Math.floor(Math.random() * count);
-    const randomQuestion = await Question.findOne().skip(randomIndex).populate('patterns');
+    const randomQuestion = await Question.findOne(filter).skip(randomIndex).populate('patterns');
 
     res.json(randomQuestion);
   } catch (error) {
@@ -109,7 +116,7 @@ export const reviewQuestion = async (req, res) => {
     // quality is a score from 0 to 5. (5 = perfect recall, 0 = complete blackout)
     const { quality } = req.body; 
     
-    const question = await Question.findById(id);
+    const question = await Question.findOne({ _id: id, ...getUserFilter(req) });
     if (!question) return res.status(404).json({ message: "Question not found" });
 
     let { repetitions, easeFactor, interval } = question;
@@ -162,7 +169,7 @@ export const reviewQuestion = async (req, res) => {
 // GET ALL Questions (To see the future schedule)
 export const getAllQuestions = async (req, res) => {
   try {
-    const questions = await Question.find()
+    const questions = await Question.find(getUserFilter(req))
       .populate('patterns')
       .sort({ nextReviewDate: 1 }); // Sort by closest review date first
     res.json(questions);
@@ -175,7 +182,7 @@ export const getAllQuestions = async (req, res) => {
 export const deleteQuestion = async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedQuestion = await Question.findByIdAndDelete(id);
+    const deletedQuestion = await Question.findOneAndDelete({ _id: id, ...getUserFilter(req) });
     if (!deletedQuestion) {
       return res.status(404).json({ message: "Question not found" });
     }
@@ -203,10 +210,10 @@ export const updateQuestion = async (req, res) => {
     if (codeLanguage !== undefined) updateFields.codeLanguage = codeLanguage;
     if (testCases !== undefined) updateFields.testCases = testCases;
 
-    const updatedQuestion = await Question.findByIdAndUpdate(
-      id,
+    const updatedQuestion = await Question.findOneAndUpdate(
+      { _id: id, ...getUserFilter(req) },
       { $set: updateFields },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).populate('patterns');
 
     if (!updatedQuestion) {
@@ -222,7 +229,7 @@ export const updateQuestion = async (req, res) => {
 // GET LeetCode Style Activity & Streak Statistics
 export const getActivityStats = async (req, res) => {
   try {
-    const questions = await Question.find();
+    const questions = await Question.find(getUserFilter(req));
     
     const dailyActivity = {};
     let totalNew = questions.length;

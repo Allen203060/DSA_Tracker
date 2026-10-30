@@ -1,8 +1,8 @@
-# 🧠 DSA Tracker & AI-Powered Spaced Repetition Platform
+# 🧠 Revalgo & AI-Powered Spaced Repetition Platform
 
-DSA Tracker is a full-stack, enterprise-grade web application engineered to help developers master Data Structures and Algorithms (DSA) through intelligent spaced repetition (SuperMemo-2 SM-2 algorithm), active recall, solution code persistence, and AI-driven static code evaluation.
+Revalgo is a full-stack, enterprise-grade web application engineered to help developers master Data Structures and Algorithms (DSA) through intelligent spaced repetition (SuperMemo-2 SM-2 algorithm), active recall, solution code persistence, and AI-driven static code evaluation.
 
-Rather than relying on passive flashcards or subjective self-reporting, DSA Tracker forces **Active Recall** by requiring users to articulate their algorithmic logic in natural language and write executable code in an interactive playground. An AI "Study Buddy" evaluates the logic, simulates test-case execution, grades performance, and dynamically computes revision schedules.
+Rather than relying on passive flashcards or subjective self-reporting, Revalgo forces **Active Recall** by requiring users to articulate their algorithmic logic in natural language and write executable code in an interactive playground. An AI "Study Buddy" evaluates the logic, simulates test-case execution, grades performance, and dynamically computes revision schedules.
 
 ---
 
@@ -93,7 +93,7 @@ If you want to contribute to the code without installing Docker, you can run the
 1. **Set up a Free Cloud Database (MongoDB Atlas)**:
    * Go to [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register) and create a free cluster.
    * Click "Connect" -> "Connect your application" and copy the connection string.
-   * Paste it into your `server/.env` file: `MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/dsa_tracker`
+   * Paste it into your `server/.env` file: `MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/revalgo`
 
 2. **Install all dependencies:**
    From the root of the project, run:
@@ -112,7 +112,7 @@ If you want to contribute to the code without installing Docker, you can run the
 ### Option B: Run with Docker Compose
 If you just want to run the app without setting up MongoDB Atlas, Docker will spin up a local MongoDB container automatically.
 
-1. Keep `MONGODB_URI=mongodb://mongo:27017/dsa_tracker` in your `server/.env` file.
+1. Keep `MONGODB_URI=mongodb://mongo:27017/revalgo` in your `server/.env` file.
 2. Spin up the containers:
    ```bash
    docker-compose up --build

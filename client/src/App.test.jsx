@@ -24,7 +24,7 @@ describe('App Component', () => {
     render(<App />);
 
     // Check for main title
-    expect(screen.getByText(/DSA Tracker/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /Revalgo/i })).toBeInTheDocument();
     
     // Wait for the components to render
     await waitFor(() => {

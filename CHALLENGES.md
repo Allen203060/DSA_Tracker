@@ -210,6 +210,32 @@ In containerized hybrid development environments with `/app/node_modules` volume
 **Key Takeaway (Interview Insight):**
 In WebGL applications supporting dual themes, particle textures must use pure alpha channels rather than pre-baked RGB color stops. Pre-baked bright gradients that look radiant with `AdditiveBlending` on black will completely vanish under `NormalBlending` on white. Separating color logic into dynamic vertex color buffers guarantees optimal contrast and optical depth across both themes.
 
+## Challenge 19: Backend Docker Container Node Modules Desync on Auth Package Installation
+**The Problem:**
+Upon implementing multi-user authentication, clicking "Quick Demo: Fill Allen's Account" or submitting login credentials returned an immediate "Authentication failed. Please verify credentials." error on the frontend, with the browser unable to log in.
+**Root Cause:**
+Inspecting `docker logs dsa_tracker_server` revealed that `nodemon` had crashed with:
+`Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'bcryptjs' imported from /app/src/models/User.js`.
+The backend was executing inside the Docker container (`dsa_tracker_server`), which maintains an isolated anonymous volume mount for `/app/node_modules`. While `npm install bcryptjs jsonwebtoken` had been run on the host system, the container's isolated anonymous volume had not received the new packages. Because the server process was crashed, incoming proxy requests from Vite to `http://server:5000/api/auth/login` failed with `ECONNREFUSED`, manifesting on the client as a generic auth failure.
+**Solution:**
+1. Ran `docker exec dsa_tracker_server npm install` to install `bcryptjs` and `jsonwebtoken` directly into the container's `/app/node_modules` volume.
+2. Restarted the container (`docker restart dsa_tracker_server`), verifying clean startup and connection: `MongoDB Connected: mongodb`, `[Bootstrap] 🛡️ All existing questions are already secured under their respective user accounts`, and `Server running on port 5000`.
+3. Verified authentication end-to-end via `curl` with status 200, returning Allen's user token and 78 isolated questions.
+**Key Takeaway (Interview Insight):**
+In containerized architectures with volume shadowing (`/app/node_modules`), server crashes often present as upstream frontend connection or auth errors due to reverse-proxy `ECONNREFUSED` failures. Always inspect container logs (`docker logs <container>`) first to distinguish actual credential mismatches from process-level dependency crashes.
+
+## Challenge 20: MongoDB Database Tools Namespace Drift during Atlas Cross-Database Restoration
+**The Problem:**
+Executing `mongorestore --uri="mongodb+srv://..." /data/db/backup/dsa_tracker` failed to restore any data, logging `don't know what to do with file ... skipping...` for all `.bson` and `.metadata.json` files and restoring 0 documents.
+**Root Cause:**
+`mongorestore` expects target paths to be either a database-level directory tree (`<dump-root>/<dbname>/*.bson`) or explicitly mapped via namespace rules. Passing a leaf directory (`/data/db/backup/dsa_tracker`) without a database name in the connection URI or `--db` flag prevented `mongorestore` from inferring the target database name. Furthermore, the local database was named `dsa_tracker` while the production Atlas cluster was named `revalgo`.
+**Solution:**
+Pointed `mongorestore` to the root dump directory (`/data/db/backup`) and used dynamic namespace mapping:
+`--nsFrom="dsa_tracker.*" --nsTo="revalgo.*" --drop`
+This instructed `mongorestore` to map and rename all collections (`dsa_tracker.questions -> revalgo.questions`, `dsa_tracker.patterns -> revalgo.patterns`, `dsa_tracker.users -> revalgo.users`), successfully restoring 138 documents (78 questions, 59 patterns, 1 user) and rebuilding indexes in Atlas with 0 failures.
+**Key Takeaway (Interview Insight):**
+When migrating between differently-named database namespaces across environments (e.g. `dsa_tracker` to `revalgo`), MongoDB database tools require `--nsFrom` and `--nsTo` translation rules anchored at the root dump directory rather than direct folder pointers.
+
 
 
 

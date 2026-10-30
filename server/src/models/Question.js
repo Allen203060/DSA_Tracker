@@ -4,6 +4,9 @@ const questionSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true },
   url: { type: String, required: false },
   
+  // User who owns this question (for multi-tenant peer isolation)
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+  
   // Your personal notes on the "trick", pattern application, and aha-moments.
   notes: { type: String, required: true },
   
