@@ -82,6 +82,12 @@
   - **Frontend Auth & Peer Management**: Created dynamic Axios JWT request interceptor (`localStorage`), active user header chip with avatar, and a glassmorphism Authentication & Peer Switcher modal supporting both peer registration and rapid 1-click Allen demo login.
   - **Deployment Readiness**: Added production CORS configuration in `server/src/app.js` with `CLIENT_URL` support, and expanded test coverage with 8 passing integration tests.
 
+- **Phase 18: Production Resilience, Render Heartbeat & Zero-Cold-Start UX**:
+  - **Public Health Endpoint**: Implemented `/api/health` in `server/src/routes/apiRoutes.js` providing sub-millisecond status responses for monitoring services.
+  - **Active Session Heartbeat**: Added a 10-minute periodic keepalive ping in `client/src/App.jsx` preventing Render free-tier instances from spinning down while any browser tab remains open.
+  - **Cold-Start Awareness Toast**: Implemented an automated wake-up detection heuristic that displays a glassmorphism floating status badge (`Connecting to cloud backend...`) if cloud spin-up exceeds 2 seconds, eliminating user confusion during cold boots.
+  - **Security Sanitization**: Removed hardcoded demo login credentials and 1-click test buttons from the client bundle.
+
 ## Next Logical Steps
 1. 3D Knowledge Graph (`react-force-graph`) to visualize pattern dependencies.
 2. Automated CI/Pre-commit hook checking UI changes against the 10-point Quality Checklist.
