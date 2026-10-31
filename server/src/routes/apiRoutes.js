@@ -15,7 +15,7 @@ import {
   gradeCode, 
   generateBoilerplate 
 } from '../controllers/aiController.js';
-import { register, login, getMe } from '../controllers/authController.js';
+import { register, login, getMe, googleAuth, resetPassword, changePassword } from '../controllers/authController.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -28,6 +28,9 @@ router.get('/health', (req, res) => {
 // --- Authentication Endpoints ---
 router.post('/auth/register', register);
 router.post('/auth/login', login);
+router.post('/auth/google', googleAuth);
+router.post('/auth/reset-password', resetPassword);
+router.post('/auth/change-password', requireAuth, changePassword);
 router.get('/auth/me', requireAuth, getMe);
 
 // --- User-Scoped Question Management ---

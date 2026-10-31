@@ -236,6 +236,14 @@ This instructed `mongorestore` to map and rename all collections (`dsa_tracker.q
 **Key Takeaway (Interview Insight):**
 When migrating between differently-named database namespaces across environments (e.g. `dsa_tracker` to `revalgo`), MongoDB database tools require `--nsFrom` and `--nsTo` translation rules anchored at the root dump directory rather than direct folder pointers.
 
-
-
-
+## Challenge 21: Dependency-Free Google Identity Services Verification & Account Linking
+**The Problem:**
+Integrating Google OAuth 2.0 often entails adding heavy SDKs like `google-auth-library` or `passport-google-oauth20`, which introduce tens of transitive dependencies, risk container volume desync, and complicate serverless / lightweight Node runtime builds.
+**Root Cause:**
+Standard OAuth flows with redirects and code-for-token exchanges require session management, redirect URIs, and complex state parameter handling. Google Identity Services (GIS), however, provides modern client-side credential generation (JWT ID tokens) that can be verified directly.
+**Solution:**
+Leveraged Node.js 20's native `fetch` API to verify the client's Google JWT token directly against Google's official tokeninfo endpoint:
+`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`.
+Upon verification, the backend extracts `sub` (Google ID), `email`, `name`, and `picture`, and atomically checks for an existing user by either `googleId` or matching `email`. If none exists, it generates a clean username and creates a new isolated peer account; if an existing user logged in via Google for the first time, it securely links their `googleId` and avatar without overwriting existing question collections.
+**Key Takeaway (Interview Insight):**
+Modern identity providers (Google, Apple, Microsoft) issue cryptographically signed OpenID Connect (OIDC) ID tokens on the frontend. Rather than pulling in heavyweight OAuth client SDKs, backends running modern Node runtimes can verify credentials with zero additional dependencies using standard OIDC validation endpoints, drastically reducing attack surface and container image bloat.

@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronUp, Trash2, ExternalLink, Layers, Folder, 
   ChevronRight, Flame, Trophy, Activity, Code, Play, Copy, Check, 
   Plus, RotateCcw, Sparkles, CheckCircle, Edit3, Save, Sun, Moon,
-  User as UserIcon, LogOut, Key, ShieldCheck, UserPlus
+  User as UserIcon, LogOut, Key, ShieldCheck, UserPlus, ArrowLeft, Lock, Info, HelpCircle
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import ThreeBackground from './components/ThreeBackground';
@@ -37,12 +37,23 @@ function App() {
     }
   });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register' | 'forgot'
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authDisplayName, setAuthDisplayName] = useState('');
+  const [authRecoveryKey, setAuthRecoveryKey] = useState('');
+  const [authNewPassword, setAuthNewPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [showGoogleConfigModal, setShowGoogleConfigModal] = useState(false);
+  
+  // Authenticated profile password modification state
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [changeCurrentPassword, setChangeCurrentPassword] = useState('');
+  const [changeNewPassword, setChangeNewPassword] = useState('');
+  const [changePasswordLoading, setChangePasswordLoading] = useState(false);
+  const [changePasswordError, setChangePasswordError] = useState('');
+  const [changePasswordSuccess, setChangePasswordSuccess] = useState('');
   const [isServerWakingUp, setIsServerWakingUp] = useState(false);
   
   // Theme State: 'dark' (softer dark) or 'light'
@@ -315,30 +326,132 @@ function App() {
     }
   }, [currentUser, viewMode, dailyRevisionLimit]);
 
+  // Google Sign-In initialization
+  useEffect(() => {
+    if (!isAuthModalOpen || currentUser) return;
+
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) return;
+
+    const initGoogle = () => {
+      if (window.google?.accounts?.id) {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: handleGoogleLoginSuccess,
+            auto_select: false,
+          });
+          const container = document.getElementById('googleSignInBtn');
+          if (container) {
+            container.innerHTML = '';
+            window.google.accounts.id.renderButton(container, {
+              theme: theme === 'dark' ? 'filled_black' : 'outline',
+              size: 'large',
+              shape: 'rectangular',
+              width: 320,
+              text: 'continue_with',
+            });
+          }
+        } catch (err) {
+          console.warn('Google Sign-In initialization error:', err);
+        }
+      }
+    };
+
+    if (window.google?.accounts?.id) {
+      initGoogle();
+    } else {
+      const timer = setInterval(() => {
+        if (window.google?.accounts?.id) {
+          clearInterval(timer);
+          initGoogle();
+        }
+      }, 300);
+      return () => clearInterval(timer);
+    }
+  }, [isAuthModalOpen, authMode, currentUser, theme]);
+
+  const handleGoogleLoginSuccess = async (response) => {
+    setAuthLoading(true);
+    setAuthError('');
+    try {
+      const res = await axios.post('/api/auth/google', { credential: response.credential });
+      const { user, token } = res.data;
+      localStorage.setItem('revalgo_token', token);
+      localStorage.setItem('revalgo_user', JSON.stringify(user));
+      setCurrentUser(user);
+      setIsAuthModalOpen(false);
+      setAuthError('');
+    } catch (err) {
+      setAuthError(err.response?.data?.error || 'Google Sign-In failed. Please try again.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const handleAuthSubmit = async (e) => {
     if (e) e.preventDefault();
     setAuthError('');
     setAuthLoading(true);
 
     try {
-      const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
-      const payload = authMode === 'login' 
-        ? { username: authUsername, password: authPassword }
-        : { username: authUsername, password: authPassword, displayName: authDisplayName || authUsername };
+      if (authMode === 'forgot') {
+        const res = await axios.post('/api/auth/reset-password', {
+          username: authUsername,
+          recoveryKey: authRecoveryKey,
+          newPassword: authNewPassword
+        });
+        const { user, token } = res.data;
+        localStorage.setItem('revalgo_token', token);
+        localStorage.setItem('revalgo_user', JSON.stringify(user));
+        setCurrentUser(user);
+        setIsAuthModalOpen(false);
+        setAuthPassword('');
+        setAuthNewPassword('');
+        setAuthRecoveryKey('');
+        setAuthError('');
+      } else {
+        const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
+        const payload = authMode === 'login' 
+          ? { username: authUsername, password: authPassword }
+          : { username: authUsername, password: authPassword, displayName: authDisplayName || authUsername };
 
-      const res = await axios.post(endpoint, payload);
-      const { user, token } = res.data;
+        const res = await axios.post(endpoint, payload);
+        const { user, token } = res.data;
 
-      localStorage.setItem('revalgo_token', token);
-      localStorage.setItem('revalgo_user', JSON.stringify(user));
-      setCurrentUser(user);
-      setIsAuthModalOpen(false);
-      setAuthPassword('');
-      setAuthError('');
+        localStorage.setItem('revalgo_token', token);
+        localStorage.setItem('revalgo_user', JSON.stringify(user));
+        setCurrentUser(user);
+        setIsAuthModalOpen(false);
+        setAuthPassword('');
+        setAuthError('');
+      }
     } catch (err) {
       setAuthError(err.response?.data?.error || 'Authentication failed. Please verify credentials.');
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    if (e) e.preventDefault();
+    setChangePasswordError('');
+    setChangePasswordSuccess('');
+    setChangePasswordLoading(true);
+
+    try {
+      const res = await axios.post('/api/auth/change-password', {
+        currentPassword: changeCurrentPassword,
+        newPassword: changeNewPassword
+      });
+      setChangePasswordSuccess(res.data.message || 'Password updated successfully!');
+      setChangeCurrentPassword('');
+      setChangeNewPassword('');
+      setTimeout(() => setChangePasswordSuccess(''), 4000);
+    } catch (err) {
+      setChangePasswordError(err.response?.data?.error || 'Failed to update password.');
+    } finally {
+      setChangePasswordLoading(false);
     }
   };
 
@@ -350,6 +463,10 @@ function App() {
     setAllQuestions([]);
     setActivityData({ dailyActivity: {}, stats: { currentStreak: 0, longestStreak: 0, totalNew: 0, totalRecalls: 0 } });
     setAuthMode('login');
+    setAuthUsername('');
+    setAuthPassword('');
+    setAuthRecoveryKey('');
+    setAuthNewPassword('');
     setIsAuthModalOpen(true);
   };
 
@@ -1991,6 +2108,66 @@ function App() {
                   </span>
                 </div>
 
+                {/* Password update collapsible inside profile */}
+                <div className="pt-2 border-t border-slate-200/60 dark:border-white/[0.06]">
+                  <button
+                    type="button"
+                    onClick={() => setShowChangePassword(!showChangePassword)}
+                    className="w-full flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-300 py-1.5 hover:text-indigo-500 transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Lock className="w-3.5 h-3.5 text-indigo-500" />
+                      Security & Password
+                    </span>
+                    {showChangePassword ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </button>
+
+                  {showChangePassword && (
+                    <form onSubmit={handleChangePassword} className="space-y-2.5 mt-2.5 p-3 rounded-xl bg-slate-100/70 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.05]">
+                      {changePasswordSuccess && (
+                        <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">
+                          {changePasswordSuccess}
+                        </div>
+                      )}
+                      {changePasswordError && (
+                        <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs">
+                          {changePasswordError}
+                        </div>
+                      )}
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Current Password</label>
+                        <input
+                          type="password"
+                          required
+                          placeholder="Current password"
+                          value={changeCurrentPassword}
+                          onChange={(e) => setChangeCurrentPassword(e.target.value)}
+                          className="w-full glass-input px-3 py-1.5 rounded-lg text-xs outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">New Password (min 6 chars)</label>
+                        <input
+                          type="password"
+                          required
+                          placeholder="New password"
+                          value={changeNewPassword}
+                          onChange={(e) => setChangeNewPassword(e.target.value)}
+                          className="w-full glass-input px-3 py-1.5 rounded-lg text-xs outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={changePasswordLoading || !changeNewPassword}
+                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                      >
+                        {changePasswordLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                        Update Password
+                      </button>
+                    </form>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <button
                     onClick={() => {
@@ -1999,7 +2176,6 @@ function App() {
                       setAuthPassword('');
                       setAuthDisplayName('');
                       setAuthError('');
-                      // Temporarily switch modal mode
                     }}
                     className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/[0.1] hover:bg-slate-100 dark:hover:bg-white/[0.05] text-xs font-semibold text-slate-700 dark:text-slate-200 transition-all"
                   >
@@ -2017,39 +2193,43 @@ function App() {
                 </div>
               </div>
             ) : (
-              /* --- SIGN IN / REGISTER FORM --- */
+              /* --- SIGN IN / REGISTER / FORGOT FORM --- */
               <div className="space-y-5">
                 <div className="text-center space-y-1">
                   <div className="inline-flex p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 mb-2">
                     <BrainCircuit className="w-7 h-7" />
                   </div>
                   <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-                    {authMode === 'login' ? 'Welcome to Revalgo' : 'Create Peer Account'}
+                    {authMode === 'login' && 'Welcome to Revalgo'}
+                    {authMode === 'register' && 'Create Peer Account'}
+                    {authMode === 'forgot' && 'Reset Account Password'}
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {authMode === 'login' 
-                      ? 'Sign in to access your spaced repetition queue & algorithm notes' 
-                      : 'Get your own isolated revision queue & personalized AI buddy'}
+                    {authMode === 'login' && 'Sign in to access your spaced repetition queue & algorithm notes'}
+                    {authMode === 'register' && 'Get your own isolated revision queue & personalized AI buddy'}
+                    {authMode === 'forgot' && 'Recover access using your account username and recovery key'}
                   </p>
                 </div>
 
-                {/* Tab Switcher */}
-                <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-200/60 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] text-xs font-medium">
-                  <button
-                    type="button"
-                    onClick={() => { setAuthMode('login'); setAuthError(''); }}
-                    className={`py-1.5 rounded-lg transition-all ${authMode === 'login' ? 'bg-white dark:bg-indigo-600 text-slate-900 dark:text-white shadow-sm font-semibold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
-                  >
-                    Sign In
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setAuthMode('register'); setAuthError(''); }}
-                    className={`py-1.5 rounded-lg transition-all ${authMode === 'register' ? 'bg-white dark:bg-indigo-600 text-slate-900 dark:text-white shadow-sm font-semibold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
-                  >
-                    Create Account
-                  </button>
-                </div>
+                {/* Tab Switcher (Only visible for login / register) */}
+                {authMode !== 'forgot' && (
+                  <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-200/60 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] text-xs font-medium">
+                    <button
+                      type="button"
+                      onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                      className={`py-1.5 rounded-lg transition-all ${authMode === 'login' ? 'bg-white dark:bg-indigo-600 text-slate-900 dark:text-white shadow-sm font-semibold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                    >
+                      Sign In
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAuthMode('register'); setAuthError(''); }}
+                      className={`py-1.5 rounded-lg transition-all ${authMode === 'register' ? 'bg-white dark:bg-indigo-600 text-slate-900 dark:text-white shadow-sm font-semibold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                    >
+                      Create Account
+                    </button>
+                  </div>
+                )}
 
                 {/* Error Banner */}
                 {authError && (
@@ -2058,67 +2238,236 @@ function App() {
                   </div>
                 )}
 
-                <form onSubmit={handleAuthSubmit} className="space-y-3.5">
-                  {authMode === 'register' && (
+                {/* FORGOT PASSWORD FORM */}
+                {authMode === 'forgot' ? (
+                  <form onSubmit={handleAuthSubmit} className="space-y-3.5">
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 leading-relaxed flex items-start gap-2">
+                      <Key className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                      <span>
+                        Enter your username, recovery key, and your desired new password.
+                      </span>
+                    </div>
+
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
-                        Display Name
+                        Username
                       </label>
                       <input
                         type="text"
-                        placeholder="e.g. Allen or Sarah"
-                        value={authDisplayName}
-                        onChange={(e) => setAuthDisplayName(e.target.value)}
+                        required
+                        placeholder="e.g. allen"
+                        value={authUsername}
+                        onChange={(e) => setAuthUsername(e.target.value)}
+                        className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
+                        Account Recovery Key
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. allen-recovery-2026"
+                        value={authRecoveryKey}
+                        onChange={(e) => setAuthRecoveryKey(e.target.value)}
+                        className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
+                        New Password
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        placeholder="At least 6 characters"
+                        value={authNewPassword}
+                        onChange={(e) => setAuthNewPassword(e.target.value)}
                         className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors"
                       />
                     </div>
-                  )}
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
-                      Username
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. allen or bob"
-                      value={authUsername}
-                      onChange={(e) => setAuthUsername(e.target.value)}
-                      className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors font-mono"
-                    />
-                  </div>
+                    <button
+                      type="submit"
+                      disabled={authLoading}
+                      className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold rounded-xl text-xs transition-all shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 mt-2"
+                    >
+                      {authLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Key className="w-3.5 h-3.5" />
+                          Reset Password &amp; Sign In
+                        </>
+                      )}
+                    </button>
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      placeholder="••••••••"
-                      value={authPassword}
-                      onChange={(e) => setAuthPassword(e.target.value)}
-                      className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={authLoading}
-                    className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold rounded-xl text-xs transition-all shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 mt-2"
-                  >
-                    {authLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Key className="w-3.5 h-3.5" />
-                        {authMode === 'login' ? 'Sign In' : 'Create Peer Account'}
-                      </>
+                    <div className="text-center pt-1">
+                      <button
+                        type="button"
+                        onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                        className="text-xs text-indigo-500 hover:text-indigo-400 font-medium inline-flex items-center gap-1"
+                      >
+                        <ArrowLeft className="w-3 h-3" /> Back to Sign In
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  /* STANDARD LOGIN / REGISTER FORM */
+                  <form onSubmit={handleAuthSubmit} className="space-y-3.5">
+                    {authMode === 'register' && (
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
+                          Display Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Allen or Sarah"
+                          value={authDisplayName}
+                          onChange={(e) => setAuthDisplayName(e.target.value)}
+                          className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors"
+                        />
+                      </div>
                     )}
-                  </button>
-                </form>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
+                        Username
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. allen or bob"
+                        value={authUsername}
+                        onChange={(e) => setAuthUsername(e.target.value)}
+                        className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                          Password
+                        </label>
+                        {authMode === 'login' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthMode('forgot');
+                              setAuthError('');
+                              setAuthRecoveryKey('');
+                              setAuthNewPassword('');
+                            }}
+                            className="text-[11px] text-indigo-500 hover:text-indigo-400 font-medium hover:underline transition-all"
+                          >
+                            Forgot password?
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="password"
+                        required
+                        placeholder="••••••••"
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={authLoading}
+                      className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold rounded-xl text-xs transition-all shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 mt-2"
+                    >
+                      {authLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Key className="w-3.5 h-3.5" />
+                          {authMode === 'login' ? 'Sign In' : 'Create Peer Account'}
+                        </>
+                      )}
+                    </button>
+
+                    {/* Google OAuth Section */}
+                    <div className="pt-2">
+                      <div className="relative flex py-2 items-center">
+                        <div className="flex-grow border-t border-slate-200/80 dark:border-white/[0.08]"></div>
+                        <span className="flex-shrink mx-3 text-[10px] uppercase font-mono text-slate-400 tracking-wider">or continue with</span>
+                        <div className="flex-grow border-t border-slate-200/80 dark:border-white/[0.08]"></div>
+                      </div>
+
+                      <div className="mt-2 flex flex-col items-center justify-center min-h-[44px]">
+                        <div id="googleSignInBtn" className="w-full flex justify-center"></div>
+
+                        {/* Fallback Google button if client ID is not yet defined in environment */}
+                        {!import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+                          <button
+                            type="button"
+                            onClick={() => setShowGoogleConfigModal(true)}
+                            className="w-full py-2.5 px-4 rounded-xl border border-slate-300/80 dark:border-white/[0.1] bg-white/80 dark:bg-white/[0.04] hover:bg-slate-50 dark:hover:bg-white/[0.08] text-xs font-semibold text-slate-700 dark:text-slate-200 transition-all flex items-center justify-center gap-2.5 shadow-sm active:scale-[0.99]"
+                          >
+                            <svg className="w-4 h-4" viewBox="0 0 24 24">
+                              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                            </svg>
+                            Continue with Google
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </form>
+                )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* --- GOOGLE OAUTH SETUP MODAL --- */}
+      {showGoogleConfigModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in">
+          <div className="glass-panel w-full max-w-md rounded-2xl p-6 shadow-2xl border border-slate-200/40 dark:border-white/[0.08] relative">
+            <button
+              onClick={() => setShowGoogleConfigModal(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
+                <HelpCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Connect Google Sign-In</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Quick 2-minute OAuth configuration</p>
+              </div>
+            </div>
+            <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <p>To enable official 1-click Google Sign-In for you and your friends:</p>
+              <ol className="list-decimal pl-4 space-y-1.5 text-[11px]">
+                <li>Visit <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-indigo-500 underline">Google Cloud Console &rarr; Credentials</a>.</li>
+                <li>Create an <strong>OAuth 2.0 Client ID</strong> (Web Application).</li>
+                <li>Add your Vercel domain and <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded font-mono">http://localhost:5173</code> to <strong>Authorized JavaScript origins</strong>.</li>
+                <li>Copy the Client ID and add it in your Vercel project environment variables as <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded font-mono">VITE_GOOGLE_CLIENT_ID</code>.</li>
+              </ol>
+              <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[11px]">
+                The backend is already fully equipped to verify tokens via Google&apos;s tokeninfo endpoint and auto-provision user accounts!
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={() => setShowGoogleConfigModal(false)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+              >
+                Got it
+              </button>
+            </div>
           </div>
         </div>
       )}

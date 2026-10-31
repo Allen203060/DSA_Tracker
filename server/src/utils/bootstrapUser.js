@@ -11,9 +11,13 @@ export const bootstrapUser = async () => {
       allenUser = await User.create({
         username: adminUsername,
         displayName: 'Allen',
-        password: defaultPassword
+        password: defaultPassword,
+        recoveryKey: 'allen-recovery-2026'
       });
       console.log(`[Bootstrap] 👤 Initialized default account: Allen (username: "allen")`);
+    } else if (!allenUser.recoveryKey) {
+      allenUser.recoveryKey = 'allen-recovery-2026';
+      await allenUser.save();
     }
 
     // Safely migrate all questions without a userId to user Allen
