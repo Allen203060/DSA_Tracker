@@ -20,6 +20,11 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// --- Health Check & Keep-Alive Ping ---
+router.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+});
+
 // --- Authentication Endpoints ---
 router.post('/auth/register', register);
 router.post('/auth/login', login);

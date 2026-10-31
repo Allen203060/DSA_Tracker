@@ -43,6 +43,7 @@ function App() {
   const [authDisplayName, setAuthDisplayName] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [isServerWakingUp, setIsServerWakingUp] = useState(false);
   
   // Theme State: 'dark' (softer dark) or 'light'
   const [theme, setTheme] = useState(() => {
@@ -261,8 +262,19 @@ function App() {
     }
   };
 
-  // Verify stored token on initial mount
+  // Verify stored token and keep backend awake with heartbeat
   useEffect(() => {
+    // Detect Render cold-start: if health ping takes >2s, show waking-up toast
+    const wakeUpTimer = setTimeout(() => {
+      setIsServerWakingUp(true);
+    }, 2000);
+
+    axios.get('/api/health')
+      .finally(() => {
+        clearTimeout(wakeUpTimer);
+        setIsServerWakingUp(false);
+      });
+
     const token = localStorage.getItem('revalgo_token');
     if (token) {
       axios.get('/api/auth/me')
@@ -279,6 +291,16 @@ function App() {
     } else {
       setIsAuthModalOpen(true);
     }
+
+    // Keep-alive heartbeat: ping backend every 10 minutes to prevent Render from going to sleep while tab is open
+    const keepAliveInterval = setInterval(() => {
+      axios.get('/api/health').catch(() => {});
+    }, 10 * 60 * 1000);
+
+    return () => {
+      clearTimeout(wakeUpTimer);
+      clearInterval(keepAliveInterval);
+    };
   }, []);
 
   // Sync data whenever active user, viewMode, or revision limit updates
@@ -780,6 +802,14 @@ function App() {
       <ThreeBackground theme={theme} />
       <div className="relative z-10 min-h-screen p-4 sm:p-6 lg:p-8 max-w-[1540px] mx-auto transition-colors duration-200">
         
+        {/* Cold Start Wake-Up Indicator Toast */}
+        {isServerWakingUp && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2 rounded-full glass-panel border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-xs font-semibold shadow-xl shadow-indigo-500/15 animate-pulse backdrop-blur-md">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+            <span>Connecting to cloud backend (waking up server)...</span>
+          </div>
+        )}
+
         {/* --- SLEEK MINIMAL HEADER BAR --- */}
       <header className="mb-6 glass-panel rounded-2xl px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
