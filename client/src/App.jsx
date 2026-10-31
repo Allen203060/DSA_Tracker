@@ -331,13 +331,6 @@ function App() {
     setIsAuthModalOpen(true);
   };
 
-  const handleQuickLoginAllen = () => {
-    setAuthUsername('allen');
-    setAuthPassword('allen123');
-    setAuthMode('login');
-    setAuthError('');
-  };
-
   // Global Escape key listener to close active modals
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -2027,21 +2020,6 @@ function App() {
                     Create Account
                   </button>
                 </div>
-
-                {/* Quick 1-Click Allen Helper (For rapid demo and testing) */}
-                {authMode === 'login' && (
-                  <button
-                    type="button"
-                    onClick={handleQuickLoginAllen}
-                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-indigo-500/15 to-purple-500/15 hover:from-indigo-500/25 hover:to-purple-500/25 border border-indigo-500/30 text-xs font-medium text-indigo-600 dark:text-indigo-300 flex items-center justify-between transition-all"
-                  >
-                    <span className="flex items-center gap-1.5 font-semibold">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                      Quick Demo: Fill Allen&apos;s Account
-                    </span>
-                    <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">78 questions</span>
-                  </button>
-                )}
 
                 {/* Error Banner */}
                 {authError && (
