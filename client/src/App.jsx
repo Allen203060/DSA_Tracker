@@ -7,7 +7,7 @@ import {
   ChevronRight, Flame, Trophy, Activity, Code, Play, Copy, Check, 
   Plus, RotateCcw, Sparkles, CheckCircle, Edit3, Save, Sun, Moon,
   User as UserIcon, LogOut, Key, ShieldCheck, UserPlus, ArrowLeft, Lock, Info, HelpCircle,
-  Skull, AlertTriangle, Hourglass, Zap, Search, Wand2, Link2, CheckCheck
+  Skull, AlertTriangle, Hourglass, Zap, Search, Wand2, Link2, CheckCheck, Download
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import ThreeBackground from './components/ThreeBackground';
@@ -105,6 +105,8 @@ function App() {
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [detectedLangBadge, setDetectedLangBadge] = useState(null);
   const [isSummarizingCode, setIsSummarizingCode] = useState(false);
+  const [showExtensionModal, setShowExtensionModal] = useState(false);
+  const [copiedToken, setCopiedToken] = useState(false);
 
   // Question Notes State
   const [expandedNotesId, setExpandedNotesId] = useState(null);
@@ -507,6 +509,15 @@ function App() {
     setIsAuthModalOpen(true);
   };
 
+  const handleCopyToken = () => {
+    const token = localStorage.getItem('revalgo_token');
+    if (token) {
+      navigator.clipboard.writeText(token);
+      setCopiedToken(true);
+      setTimeout(() => setCopiedToken(false), 2500);
+    }
+  };
+
   // Global Escape key listener to close active modals
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -514,11 +525,12 @@ function App() {
         if (playgroundQuestion) setPlaygroundQuestion(null);
         if (viewingCodeQuestion) setViewingCodeQuestion(null);
         if (reviewingQuestion) closeReview();
+        if (showExtensionModal) setShowExtensionModal(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [playgroundQuestion, viewingCodeQuestion, reviewingQuestion]);
+  }, [playgroundQuestion, viewingCodeQuestion, reviewingQuestion, showExtensionModal]);
 
   // Starter Boilerplate Code Templates
   const getStarterTemplate = (lang, titleStr) => {
@@ -1121,6 +1133,16 @@ function App() {
             Practice Mode (Random Question)
           </button>
 
+          {/* Chrome Companion Extension Trigger */}
+          <button
+            onClick={() => setShowExtensionModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-500/15 to-purple-500/15 hover:from-indigo-500/25 hover:to-purple-500/25 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-semibold font-mono transition-all shadow-sm active:scale-[0.98]"
+            title="Download Revalgo Chrome Companion Extension"
+          >
+            <Zap className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+            <span className="hidden sm:inline">Extension</span>
+          </button>
+
           {/* Streak Indicator */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-300 text-xs font-semibold font-mono">
             <Flame className="w-4 h-4 text-amber-500 dark:text-amber-400" />
@@ -1443,6 +1465,48 @@ function App() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* --- REVALGO CHROME COMPANION BANNER --- */}
+      <section className="mb-6 glass-panel rounded-2xl p-4 sm:p-5 border border-indigo-500/30 bg-gradient-to-r from-indigo-950/[0.12] via-purple-950/[0.08] to-emerald-950/[0.1] shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-500 shrink-0 shadow-inner">
+            <Zap className="w-5 h-5 text-amber-500 animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                Revalgo Chrome Companion
+              </h3>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/25 font-mono uppercase font-semibold">
+                1-Click Auto-Logger
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 font-mono">
+                LeetCode &amp; GFG
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Tired of copy-pasting? Log questions, editor code, and AI variable summaries directly from LeetCode &amp; GeeksforGeeks in 1 click.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto">
+          <a
+            href="/revalgo-companion-extension.zip"
+            download="revalgo-companion-extension.zip"
+            className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/25 transition-all active:scale-95"
+          >
+            <Download className="w-4 h-4" />
+            <span>Download Extension (.zip)</span>
+          </a>
+          <button
+            onClick={() => setShowExtensionModal(true)}
+            className="flex-1 md:flex-initial px-4 py-2.5 glass-input hover:border-indigo-500/40 text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-white rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
+          >
+            <span>Install Guide &amp; Benefits</span>
+          </button>
         </div>
       </section>
 
@@ -2539,6 +2603,23 @@ function App() {
                   </span>
                 </div>
 
+                {/* Personal Extension API Token Box */}
+                <div className="p-3 rounded-xl bg-slate-200/50 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block font-mono">Chrome Extension Token</span>
+                    <span className="text-xs font-mono text-slate-700 dark:text-slate-300">••••••••••••••••••••••••</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyToken}
+                    className="px-3 py-1.5 rounded-lg glass-input text-xs font-mono text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 flex items-center gap-1.5 active:scale-95 transition-all shadow-sm"
+                    title="Copy token to paste into Revalgo Chrome Extension config"
+                  >
+                    {copiedToken ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedToken ? 'Copied!' : 'Copy Token'}</span>
+                  </button>
+                </div>
+
                 {/* Password update collapsible inside profile */}
                 <div className="pt-2 border-t border-slate-200/60 dark:border-white/[0.06]">
                   <button
@@ -2897,6 +2978,140 @@ function App() {
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
               >
                 Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- CHROME EXTENSION INSTALLATION & BENEFITS MODAL --- */}
+      {showExtensionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+          <div className="glass-panel w-full max-w-xl rounded-2xl p-6 sm:p-7 shadow-2xl border border-slate-200/40 dark:border-white/[0.08] relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setShowExtensionModal(false)}
+              className="absolute top-5 right-5 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Header */}
+            <div className="flex items-center gap-3.5 mb-5 border-b border-slate-200/80 dark:border-white/[0.06] pb-4">
+              <div className="w-11 h-11 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-500 shrink-0 shadow-inner">
+                <Zap className="w-6 h-6 text-amber-500 animate-pulse" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  Revalgo Chrome Companion
+                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                    v1.0.0
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">1-Click LeetCode &amp; GeeksforGeeks Logger</p>
+              </div>
+            </div>
+
+            {/* Quick Action Download Box */}
+            <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-500/15 via-purple-500/10 to-emerald-500/15 border border-indigo-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 mb-5">
+              <div>
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-100 block">Direct Download Package</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">revalgo-companion-extension.zip (8.7 KB)</span>
+              </div>
+              <a
+                href="/revalgo-companion-extension.zip"
+                download="revalgo-companion-extension.zip"
+                className="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all active:scale-95"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download .zip</span>
+              </a>
+            </div>
+
+            {/* Core Advantages */}
+            <div className="mb-5 space-y-2">
+              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono">
+                Why use the extension? (Core Advantages)
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="p-3 rounded-xl bg-slate-100/70 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.05]">
+                  <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 block mb-0.5">🚀 Zero Tab-Switching</span>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                    Log problems directly while on LeetCode or GFG without having to switch windows or copy URLs.
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-100/70 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.05]">
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 block mb-0.5">🧠 Automatic Code Grab</span>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                    Captures your exact solution code from Monaco/Ace editor, including your custom variables.
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-100/70 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.05]">
+                  <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 block mb-0.5">✨ AI Variable Recall Notes</span>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                    1-Click prompts AI to summarize your approach using your actual variable names (`left`, `st`, etc.).
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-100/70 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.05]">
+                  <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 block mb-0.5">📅 Instant SM-2 Scheduling</span>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                    Saves directly to your personal Revalgo account and queues the question for review tomorrow.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Step-by-Step Installation */}
+            <div className="space-y-3 mb-5">
+              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono">
+                Installation Steps (Takes ~30 seconds)
+              </h4>
+              <ol className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                <li className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-indigo-600/20 text-indigo-500 flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">1</span>
+                  <span><strong>Download &amp; Extract</strong> the <code className="bg-slate-200/70 dark:bg-slate-800 px-1 py-0.5 rounded font-mono">revalgo-companion-extension.zip</code> file onto your computer.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-indigo-600/20 text-indigo-500 flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">2</span>
+                  <span>In Chrome, Brave, or Edge, visit <code className="bg-slate-200/70 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono select-all">chrome://extensions</code> in your address bar.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-indigo-600/20 text-indigo-500 flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">3</span>
+                  <span>Toggle on <strong>&quot;Developer mode&quot;</strong> in the top-right corner.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-indigo-600/20 text-indigo-500 flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">4</span>
+                  <span>Click <strong>&quot;Load unpacked&quot;</strong> and select the extracted folder. The Revalgo icon will appear in your toolbar!</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-indigo-600/20 text-indigo-500 flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">5</span>
+                  <span>Click the extension on any LeetCode/GFG problem page, click <strong>⚙ Config</strong>, and paste your Token below:</span>
+                </li>
+              </ol>
+
+              {/* 1-Click Token Copy Box */}
+              <div className="p-3 rounded-xl bg-slate-200/50 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] flex items-center justify-between gap-3 mt-2">
+                <div>
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block font-mono">Your Account API Token</span>
+                  <span className="text-xs font-mono text-slate-700 dark:text-slate-300">••••••••••••••••••••••••</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyToken}
+                  className="px-3.5 py-1.5 rounded-lg glass-input text-xs font-mono text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 flex items-center gap-1.5 active:scale-95 transition-all shadow-sm"
+                >
+                  {copiedToken ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedToken ? 'Token Copied!' : 'Copy Token'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-200/60 dark:border-white/[0.06]">
+              <button
+                onClick={() => setShowExtensionModal(false)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+              >
+                Close Guide
               </button>
             </div>
           </div>

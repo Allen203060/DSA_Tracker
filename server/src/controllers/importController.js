@@ -103,24 +103,30 @@ export const importProblemFromUrl = async (req, res) => {
     // 2. GEEKSFORGEEKS IMPORT
     if (cleanUrl.includes('geeksforgeeks.org')) {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4500);
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-      const gfgRes = await fetch(cleanUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      const html = await gfgRes.text();
+      let html = '';
+      try {
+        const gfgRes = await fetch(cleanUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          },
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (gfgRes.ok) {
+          html = await gfgRes.text();
+        }
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+      }
 
       // Extract Title from <title> tag
       const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
       let title = titleMatch ? titleMatch[1].replace(/\|\s*Practice.*$/i, '').replace(/\|\s*GeeksforGeeks.*$/i, '').trim() : '';
       title = decodeHtml(title);
 
-      if (!title) {
+      if (!title || /just a moment|security check|cloudflare|robot/i.test(title)) {
         // Fallback to URL path slug
         const slugMatch = cleanUrl.match(/problems\/([^\/]+)/i);
         if (slugMatch) {

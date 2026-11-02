@@ -291,6 +291,19 @@ Users experienced significant friction when logging DSA questions, having to rep
 2. **Regex Code Language Auto-Detection**: Implemented `detectCodeLanguage` recognizing C++, Python, Java, JavaScript, and Go syntax from language keywords, automatically configuring compiler environments and editor highlighting.
 3. **Code-Anchored AI Note Generation**: Implemented `/api/ai/summarize-code` prompting the LLM to inspect the student's personal code and derive intuition notes specifically referencing their custom variable names and invariant logic.
 **Key Takeaway (Interview Insight):**
-When integrating with third-party developer platforms, official public GraphQL/REST API endpoints should always be prioritized over headless browser scraping (Puppeteer/Playwright). They are orders of magnitude faster (~150ms vs ~3500ms), consume zero extra memory, and are immune to CSS selector drift.
+## Challenge 25: Monaco Editor Content Extraction, Portable Extension Authentication, and Zero-Friction Web Distribution
+**The Problem:**
+While backend problem scraping automates metadata extraction (title, difficulty, tags), it cannot access the user's local, unsaved solution code currently written in browser-based coding editors like LeetCode and GeeksforGeeks. Furthermore, distributing browser extensions through the official Chrome Web Store introduces a mandatory developer fee ($5), days-to-weeks review delays, and complex OAuth sync setups that deter fast developer iterations.
+**Root Cause:**
+1. Both LeetCode and GeeksforGeeks use virtualized code editors (Monaco Editor and Ace Editor) that render lines dynamically into virtual DOM spans (`.view-line` or `.ace_line`) with non-breaking spaces (`\u00A0`). Standard `innerText` or `value` queries on the container elements return empty strings or unformatted blobs without indentation.
+2. Browser extensions operate in an isolated context without access to the web app's `localStorage`, requiring an explicit authorization mechanism to communicate with the Revalgo API without prompting the user for repetitive logins.
+3. Hosting external binaries or relying on third-party stores disconnects users from updates and complicates on-boarding for peers and testers.
+**Solution:**
+1. **Virtualized DOM Code Extraction**: In `chrome-extension/content.js`, queried `.monaco-editor .view-line` and `.ace_line` nodes sequentially, extracting text line-by-line while replacing `\u00A0` with standard ASCII spaces (`' '`) to preserve indentation and language syntax formatting.
+2. **Portable Bearer Token Handshake**: Designed a seamless 1-click token copy interface in the Revalgo web dashboard (header and settings modal), storing the JWT in `chrome.storage.local`. The extension automatically signs all requests (`/api/ai/summarize-code` and `/api/questions`) with `Authorization: Bearer <token>`.
+3. **Self-Hosted Unpacked ZIP Distribution**: Packaged the extension into `client/public/revalgo-companion-extension.zip`, allowing the Vite web server to distribute the pre-bundled ZIP directly at `/revalgo-companion-extension.zip`. Accompanied with a modal featuring direct download and a 5-step Developer Mode onboarding guide.
+**Key Takeaway (Interview Insight):**
+Browser extensions are the gold standard for zero-friction workflows because they run with client-side privilege in the user's active tab. When scraping virtualized editor frameworks like Monaco, DOM traversal must account for line virtualization and unicode whitespace normalization (`\u00A0` vs `\u0020`), transforming raw screen coordinates into clean, syntactically valid source files.
+
 
 

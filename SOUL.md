@@ -111,11 +111,12 @@
   - **Live Omnibox Problem Search**: Implemented `/api/import/search` querying LeetCode problemsets in real-time. Users can simply type a problem number (e.g. `739`, `42`) or keyword (`daily`, `lru`) to trigger a live autocomplete dropdown that auto-populates all question fields with zero URL copying.
   - **Language Auto-Detection**: Authored `client/src/utils/codeDetector.js` automatically identifying C++, Python, Java, JavaScript, and Go syntax from student solution code and updating form selectors with a high-visibility badge.
   - **Code-Anchored Intuition Generator**: Implemented `/api/ai/summarize-code` in `server/src/controllers/aiController.js` and a 1-click `[ ✨ Auto-Fill Notes from Code ]` button that summarizes core algorithmic invariants using the student's exact variable names and custom helpers to maximize long-term retention.
+  - **Revalgo Chrome Companion Extension & Direct Web Distribution**: Authored a complete Manifest V3 browser extension (`chrome-extension/`) enabling zero tab-switching problem logging directly on LeetCode and GeeksforGeeks. Built with content script Monaco/Ace editor code extraction, self-reference AI intuition summaries, and instant SM-2 spaced repetition scheduling. Packaged into a direct on-site download (`/revalgo-companion-extension.zip`) with an interactive installation modal and 1-click bearer token generator in the web app dashboard.
 
 ## Next Logical Steps
-1. Revalgo Web Clipper (Chrome / Brave Manifest V3 browser extension) for 1-click submission directly from LeetCode and GFG tabs.
-2. 3D Knowledge Graph (`react-force-graph`) to visualize pattern dependencies.
-3. Automated CI/Pre-commit hook checking UI changes against the 10-point Quality Checklist.
+1. 3D Knowledge Graph (`react-force-graph`) to visualize pattern dependencies and prerequisite hierarchies.
+2. Automated CI/Pre-commit hook checking UI changes against the 10-point Quality Checklist.
+3. Webhook/Chrome Extension background sync for automatic logging on problem submission acceptance.
 
 ## Key Decisions
 - Shifted away from standard self-reported flashcard mechanics. By forcing the user to type out the logic in Natural Language and having a friendly AI grade it, we eliminate the "illusion of competence".
@@ -124,3 +125,5 @@
 - Modular Markdown Reference Corpora over Monolithic Prompts: Adopting the Apple Skills pattern where each domain is split into focused markdown documents (`tokens.md`, `motion-tokens.md`, etc.). This preserves LLM token budgets and allows precise, targeted retrieval without hallucination.
 - Strict UI/UX Redesign Boundary: Kept frontend presentation completely decoupled from API contracts and business logic, ensuring visual modernizations never introduce regression into core spaced repetition workflows.
 - Semantic CSS Variable Layering for Theming: Centralized theming in `:root` and `.dark` variables rather than ad-hoc class branches, allowing instant global re-skinning without DOM re-renders.
+- Unpacked Developer Mode Extension Distribution: Opted for direct client-side ZIP packaging and web hosting (`/revalgo-companion-extension.zip`) over the commercial Chrome Web Store. This removes registration barriers, developer fees, and review delays while giving users full code transparency and instant 1-click installation.
+

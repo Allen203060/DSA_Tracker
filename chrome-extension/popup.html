@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Revalgo Companion</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      width: 380px;
+      min-height: 480px;
+      background: #090c15;
+      color: #e2e8f0;
+      padding: 16px;
+      font-size: 13px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .logo-badge {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: #4f46e5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 13px;
+      color: white;
+    }
+    .brand-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      color: #f8fafc;
+    }
+    .gear-btn {
+      background: none;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      border-radius: 6px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .gear-btn:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: white;
+    }
+    .card {
+      background: rgba(26, 33, 52, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .input-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    input[type="text"], input[type="url"], textarea, select {
+      width: 100%;
+      background: #0f1422;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      color: #f1f5f9;
+      padding: 8px 10px;
+      font-size: 12px;
+      outline: none;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: #6366f1;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-easy { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-medium { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-hard { background: rgba(244, 63, 94, 0.2); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.3); }
+    
+    .code-preview {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      color: #38bdf8;
+      background: #07090e;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 8px;
+      max-height: 100px;
+      overflow-y: auto;
+      white-space: pre;
+    }
+    .btn-primary {
+      width: 100%;
+      background: #4f46e5;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-primary:hover { background: #4338ca; }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-magic {
+      background: none;
+      border: none;
+      color: #818cf8;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-magic:hover { color: #a5b4fc; text-decoration: underline; }
+
+    .status-msg {
+      margin-top: 10px;
+      font-size: 11px;
+      text-align: center;
+      border-radius: 6px;
+      padding: 6px;
+      display: none;
+    }
+    .status-success { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .status-error { background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.3); }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <div class="logo-badge">R</div>
+      <span class="brand-title">Revalgo Companion</span>
+    </div>
+    <button id="toggleSettingsBtn" class="gear-btn">⚙ Config</button>
+  </div>
+
+  <!-- SETTINGS DRAWER -->
+  <div id="settingsPanel" class="card hidden">
+    <div class="input-label">Revalgo Web App URL</div>
+    <input type="url" id="serverUrlInput" placeholder="https://dsa-tracker.onrender.com" value="https://dsa-tracker.onrender.com" style="margin-bottom: 8px;">
+    
+    <div class="input-label">Your Revalgo JWT Token</div>
+    <input type="text" id="tokenInput" placeholder="Paste your token from Revalgo Profile..." style="margin-bottom: 10px;">
+    
+    <button id="saveSettingsBtn" class="btn-primary" style="padding: 7px; font-size: 12px;">Save Connection Settings</button>
+  </div>
+
+  <!-- MAIN LOGGER VIEW -->
+  <div id="loggerView">
+    <!-- Problem Info Card -->
+    <div class="card">
+      <div class="input-label">
+        <span>Detected Problem</span>
+        <span id="diffBadge" class="badge badge-medium">Medium</span>
+      </div>
+      <input type="text" id="titleInput" placeholder="Problem Title..." style="font-weight: 600; margin-bottom: 6px;">
+      <input type="url" id="urlInput" placeholder="Problem URL..." style="color: #94a3b8; font-size: 11px;">
+    </div>
+
+    <!-- Solution Code Preview Card -->
+    <div class="card">
+      <div class="input-label">
+        <span>Captured Code</span>
+        <span id="langBadge" style="font-size: 10px; color: #818cf8; text-transform: uppercase;">C++</span>
+      </div>
+      <div id="codePreview" class="code-preview">// No code captured from editor</div>
+    </div>
+
+    <!-- Intuition Notes Card -->
+    <div class="card">
+      <div class="input-label">
+        <span>Intuition &amp; Key Notes</span>
+        <button id="aiNotesBtn" class="btn-magic" type="button">✨ Auto-Fill from Code</button>
+      </div>
+      <textarea id="notesInput" rows="3" placeholder="Core intuition, aha-moment, and key variables..."></textarea>
+    </div>
+
+    <!-- Submission Button -->
+    <button id="submitBtn" class="btn-primary">
+      <span>🚀 Log to Revalgo &amp; Schedule SM-2</span>
+    </button>
+  </div>
+
+  <div id="statusMsg" class="status-msg"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

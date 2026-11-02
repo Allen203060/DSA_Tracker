@@ -29,7 +29,7 @@ describe('App Component', () => {
     // Wait for the components to render
     await waitFor(() => {
       expect(screen.getByText(/Data Structures & Algorithms/i)).toBeInTheDocument();
-      expect(screen.getByText(/Log Question/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Log Question/i).length).toBeGreaterThanOrEqual(1);
     });
   });
 });
