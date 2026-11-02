@@ -65,31 +65,86 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(hideStatus, 3000);
   });
 
+  function applyScrapedData(res) {
+    if (!res) return;
+    if (res.title && (!titleInput.value || titleInput.value === 'GeeksforGeeks Problem')) {
+      titleInput.value = res.title;
+    }
+    if (res.url) urlInput.value = res.url;
+    if (res.difficulty) {
+      capturedDifficulty = res.difficulty;
+      diffBadge.innerText = res.difficulty;
+      diffBadge.className = `badge badge-${res.difficulty.toLowerCase()}`;
+    }
+    if (res.code) {
+      capturedCode = res.code;
+      codePreview.innerText = res.code.slice(0, 300) + (res.code.length > 300 ? '\n... (truncated)' : '');
+    }
+    if (res.language) {
+      capturedLanguage = res.language;
+      langBadge.innerText = res.language.toUpperCase();
+    }
+  }
+
+  function fallbackParseFromTab(tab) {
+    if (!tab || !tab.url) return;
+    urlInput.value = tab.url;
+
+    let title = tab.title || '';
+    title = title
+      .replace(/&amp;/g, '&')
+      .replace(/&#x27;/g, "'")
+      .replace(/&#39;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/\|\s*Practice.*$/i, '')
+      .replace(/\|\s*GeeksforGeeks.*$/i, '')
+      .replace(/-\s*GeeksforGeeks.*$/i, '')
+      .replace(/-\s*Practice.*$/i, '')
+      .replace(/-\s*LeetCode.*$/i, '')
+      .replace(/^Practice\s*\|\s*/i, '')
+      .replace(/^Problems\s*\|\s*/i, '')
+      .trim();
+
+    if (!title || /^(practice|problems|geeksforgeeks|problem of the day|leetcode)$/i.test(title)) {
+      const slugMatch = tab.url.match(/problems?\/([^\/\?#]+)/i);
+      if (slugMatch) {
+        const rawSlug = slugMatch[1].replace(/-[0-9]{6,}$/g, '').replace(/[-_]+/g, ' ');
+        title = rawSlug.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      }
+    }
+
+    if (title) {
+      titleInput.value = title;
+    }
+  }
+
   // Query Active Tab to scrape problem & code
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab && tab.id) {
-      chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PROBLEM' }, (res) => {
+      // 1. Instantly parse from active tab's URL and title (zero latency)
+      fallbackParseFromTab(tab);
+
+      // 2. Query content script
+      chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PROBLEM' }, async (res) => {
         if (chrome.runtime.lastError || !res) {
-          // Not on a supported problem page or content script hasn't injected yet
+          // Tab was open before extension was installed or content script needs injection
+          try {
+            await chrome.scripting.executeScript({
+              target: { tabId: tab.id },
+              files: ['content.js']
+            });
+            // Retry message after dynamic injection
+            chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PROBLEM' }, (retryRes) => {
+              if (retryRes) applyScrapedData(retryRes);
+            });
+          } catch (scriptErr) {
+            console.log('Script injection notice:', scriptErr);
+          }
           return;
         }
 
-        if (res.title) titleInput.value = res.title;
-        if (res.url) urlInput.value = res.url;
-        if (res.difficulty) {
-          capturedDifficulty = res.difficulty;
-          diffBadge.innerText = res.difficulty;
-          diffBadge.className = `badge badge-${res.difficulty.toLowerCase()}`;
-        }
-        if (res.code) {
-          capturedCode = res.code;
-          codePreview.innerText = res.code.slice(0, 300) + (res.code.length > 300 ? '\n... (truncated)' : '');
-        }
-        if (res.language) {
-          capturedLanguage = res.language;
-          langBadge.innerText = res.language.toUpperCase();
-        }
+        applyScrapedData(res);
       });
     }
   } catch (err) {

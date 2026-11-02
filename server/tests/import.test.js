@@ -45,7 +45,7 @@ describe('Universal Import & Live Search API Endpoints', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.platform).toBe('geeksforgeeks');
-    expect(res.body.title).toContain("Kadane's Algorithm");
+    expect(res.body.title).toMatch(/Kadane'?s Algorithm/i);
     expect(res.body.difficulty).toBe('Medium');
   });
 

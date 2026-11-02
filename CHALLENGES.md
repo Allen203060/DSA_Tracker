@@ -302,8 +302,21 @@ While backend problem scraping automates metadata extraction (title, difficulty,
 1. **Virtualized DOM Code Extraction**: In `chrome-extension/content.js`, queried `.monaco-editor .view-line` and `.ace_line` nodes sequentially, extracting text line-by-line while replacing `\u00A0` with standard ASCII spaces (`' '`) to preserve indentation and language syntax formatting.
 2. **Portable Bearer Token Handshake**: Designed a seamless 1-click token copy interface in the Revalgo web dashboard (header and settings modal), storing the JWT in `chrome.storage.local`. The extension automatically signs all requests (`/api/ai/summarize-code` and `/api/questions`) with `Authorization: Bearer <token>`.
 3. **Self-Hosted Unpacked ZIP Distribution**: Packaged the extension into `client/public/revalgo-companion-extension.zip`, allowing the Vite web server to distribute the pre-bundled ZIP directly at `/revalgo-companion-extension.zip`. Accompanied with a modal featuring direct download and a 5-step Developer Mode onboarding guide.
+## Challenge 26: GeeksforGeeks Title Extraction Failure & Browser Extension Uninjected Tab Lifecycle
+**The Problem:**
+When opening the Revalgo Companion extension on a GeeksforGeeks problem page, the problem title field remained completely empty and prompted the user with "Please enter a problem title" upon submission.
+**Root Cause:**
+1. **Uninjected Active Tab Lifecycle**: In Chrome/Chromium, when an unpacked extension is loaded, updated, or toggled on in Developer Mode, Chrome does *not* retroactively inject `content_scripts` into already open browser tabs. When the popup invoked `chrome.tabs.sendMessage`, Chrome returned a runtime error (`"Could not establish connection. Receiving end does not exist"`), which caused the popup to exit silently without populating any metadata.
+2. **Strict Manifest Match Patterns**: In `manifest.json`, the match pattern `https://*.geeksforgeeks.org/problems/*` failed to match apex domains (`https://geeksforgeeks.org/`), course/batch problem paths (`/batch/.../problem/...`), or contest paths.
+3. **GFG Next.js Hydration & DOM Drift**: Modern GeeksforGeeks is a Next.js single-page application and no longer uses legacy class names like `.problem-tab__name`. In addition, GFG titles contain raw HTML entities (`&#x27;`) and platform suffixes (`| Practice | GeeksforGeeks`), and previously lacked URL slug fallback logic.
+**Solution:**
+1. **Instant Tab Fallback in Popup**: In `popup.js`, leveraged `chrome.tabs.query` to immediately extract and sanitize `tab.title` and `tab.url` synchronously before any message dispatch. Decoded HTML entities and applied slug extraction as a zero-latency safety net.
+2. **Programmatic Script Injection on Failure**: If `chrome.tabs.sendMessage` returns an error due to an un-injected pre-existing tab, `popup.js` catches the error and executes `chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] })` on the fly, immediately retrying the message handshake.
+3. **Multi-Tiered GFG Extraction**: In `content.js`, extracted `problem_name` directly from the DOM script tag `#`__NEXT_DATA__` (immune to CSS class changes), augmented with OpenGraph meta tags, modern header selectors, and trailing numeric ID stripping (`-1587115620`) on URL slugs.
+4. **Broadened Manifest Permissions**: Updated match patterns to `*://*.geeksforgeeks.org/*` and `*://geeksforgeeks.org/*`.
 **Key Takeaway (Interview Insight):**
-Browser extensions are the gold standard for zero-friction workflows because they run with client-side privilege in the user's active tab. When scraping virtualized editor frameworks like Monaco, DOM traversal must account for line virtualization and unicode whitespace normalization (`\u00A0` vs `\u0020`), transforming raw screen coordinates into clean, syntactically valid source files.
+Content scripts should never be assumed to exist on active tabs at runtime. Extension popups must adopt a defense-in-depth architecture: 1) parse top-level tab metadata instantly, 2) attempt declarative messaging, and 3) dynamically inject the content script via `chrome.scripting.executeScript` when connecting to pre-existing tabs.
+
 
 
 

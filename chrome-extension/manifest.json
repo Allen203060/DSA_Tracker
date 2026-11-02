@@ -9,8 +9,10 @@
     "scripting"
   ],
   "host_permissions": [
-    "https://leetcode.com/*",
-    "https://*.geeksforgeeks.org/*",
+    "*://*.leetcode.com/*",
+    "*://leetcode.com/*",
+    "*://*.geeksforgeeks.org/*",
+    "*://geeksforgeeks.org/*",
     "http://*/*",
     "https://*/*"
   ],
@@ -31,9 +33,10 @@
   "content_scripts": [
     {
       "matches": [
-        "https://leetcode.com/problems/*",
-        "https://leetcode.com/contest/*/problems/*",
-        "https://*.geeksforgeeks.org/problems/*"
+        "*://*.leetcode.com/*",
+        "*://leetcode.com/*",
+        "*://*.geeksforgeeks.org/*",
+        "*://geeksforgeeks.org/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
