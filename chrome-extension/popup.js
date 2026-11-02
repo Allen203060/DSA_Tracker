@@ -5,9 +5,7 @@ let capturedLanguage = 'cpp';
 let capturedDifficulty = 'Medium';
 let capturedTestCases = [];
 
-const PRODUCTION_SERVER_URL = 'https://revalgo-api.onrender.com';
-const LOCALHOST_SERVER_URL = 'http://localhost:5000';
-const DEFAULT_SERVER_URL = PRODUCTION_SERVER_URL;
+const SERVER_URL = 'https://revalgo-api.onrender.com';
 
 function detectCodeLanguage(code) {
   if (!code) return 'cpp';
@@ -22,11 +20,8 @@ function detectCodeLanguage(code) {
 document.addEventListener('DOMContentLoaded', async () => {
   const toggleSettingsBtn = document.getElementById('toggleSettingsBtn');
   const settingsPanel = document.getElementById('settingsPanel');
-  const serverUrlInput = document.getElementById('serverUrlInput');
   const tokenInput = document.getElementById('tokenInput');
   const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-  const setCloudBtn = document.getElementById('setCloudBtn');
-  const setLocalhostBtn = document.getElementById('setLocalhostBtn');
 
   const titleInput = document.getElementById('titleInput');
   const urlInput = document.getElementById('urlInput');
@@ -49,29 +44,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     statusMsg.style.display = 'none';
   }
 
-  function updatePresetButtons(activeUrl) {
-    if (activeUrl && activeUrl.includes('revalgo-api.onrender.com')) {
-      if (setCloudBtn) setCloudBtn.classList.add('active');
-      if (setLocalhostBtn) setLocalhostBtn.classList.remove('active');
-    } else if (activeUrl && activeUrl.includes('localhost')) {
-      if (setLocalhostBtn) setLocalhostBtn.classList.add('active');
-      if (setCloudBtn) setCloudBtn.classList.remove('active');
-    } else {
-      if (setCloudBtn) setCloudBtn.classList.remove('active');
-      if (setLocalhostBtn) setLocalhostBtn.classList.remove('active');
-    }
-  }
-
-  // Load saved settings with auto-migration to official production API
-  const config = await chrome.storage.local.get(['revalgo_server_url', 'revalgo_token']);
-  let serverUrl = config.revalgo_server_url;
+  // Load saved token
+  const config = await chrome.storage.local.get(['revalgo_token']);
   let token = config.revalgo_token || '';
-
-  // Auto-migrate if empty, if pointing to obsolete placeholder, or if unconfigured
-  if (!serverUrl || serverUrl.includes('dsa-tracker.onrender.com') || serverUrl.trim() === '') {
-    serverUrl = PRODUCTION_SERVER_URL;
-    await chrome.storage.local.set({ revalgo_server_url: PRODUCTION_SERVER_URL });
-  }
 
   // Auto-detect Token from open Revalgo tabs if token is missing
   if (!token) {
@@ -95,48 +70,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (_) {}
   }
 
-  serverUrlInput.value = serverUrl;
   tokenInput.value = token;
-  updatePresetButtons(serverUrl);
 
   if (!token) {
     settingsPanel.classList.remove('hidden');
-    showStatus('Please set your Revalgo Token in Settings to connect.', true);
+    showStatus('Please enter your Revalgo Account Token to connect.', true);
   }
 
   toggleSettingsBtn.addEventListener('click', () => {
     settingsPanel.classList.toggle('hidden');
   });
 
-  if (setCloudBtn) {
-    setCloudBtn.addEventListener('click', () => {
-      serverUrlInput.value = PRODUCTION_SERVER_URL;
-      updatePresetButtons(PRODUCTION_SERVER_URL);
-    });
-  }
-
-  if (setLocalhostBtn) {
-    setLocalhostBtn.addEventListener('click', () => {
-      serverUrlInput.value = LOCALHOST_SERVER_URL;
-      updatePresetButtons(LOCALHOST_SERVER_URL);
-    });
-  }
-
-  serverUrlInput.addEventListener('input', () => {
-    updatePresetButtons(serverUrlInput.value.trim());
-  });
-
   saveSettingsBtn.addEventListener('click', async () => {
-    const newUrl = serverUrlInput.value.trim().replace(/\/$/, '') || PRODUCTION_SERVER_URL;
     const newToken = tokenInput.value.trim();
 
+    if (!newToken) {
+      showStatus('Please enter your Revalgo Account Token.', true);
+      return;
+    }
+
     await chrome.storage.local.set({
-      revalgo_server_url: newUrl,
       revalgo_token: newToken
     });
 
     settingsPanel.classList.add('hidden');
-    showStatus(`Connection saved: ${newUrl}`);
+    showStatus('✓ Account connected successfully!');
     setTimeout(hideStatus, 3000);
   });
 
@@ -246,8 +204,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // AI Auto-Fill Notes from Code
   aiNotesBtn.addEventListener('click', async () => {
-    const cfg = await chrome.storage.local.get(['revalgo_server_url', 'revalgo_token']);
-    const baseUrl = cfg.revalgo_server_url || PRODUCTION_SERVER_URL;
+    const cfg = await chrome.storage.local.get(['revalgo_token']);
     const authToken = cfg.revalgo_token;
 
     if (!authToken) {
@@ -270,7 +227,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     hideStatus();
 
     try {
-      const response = await fetch(`${baseUrl}/api/ai/summarize-code`, {
+      const response = await fetch(`${SERVER_URL}/api/ai/summarize-code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -285,10 +242,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (!response.ok) {
         if (response.status === 401) {
-          throw new Error(`Unauthorized (401). Your token does not match ${baseUrl}. Check your Server Target in ⚙ Config.`);
-        }
-        if (response.status === 404) {
-          throw new Error(`Endpoint not found (404) at ${baseUrl}. Verify your Server Target URL.`);
+          throw new Error('Unauthorized (401). Please update your API token in ⚙ Config.');
         }
         let errMsg = 'Failed to summarize code';
         try {
@@ -307,8 +261,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       let message = err.message || 'Connection failed';
       if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
-        message = `Cannot connect to ${baseUrl}. Check ⚙ Config and verify the server is running.`;
-        settingsPanel.classList.remove('hidden');
+        message = 'Cannot connect to Revalgo cloud service. Please check your connection.';
       }
       showStatus(`AI Summary Error: ${message}`, true);
     } finally {
@@ -319,8 +272,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Submit to Revalgo
   submitBtn.addEventListener('click', async () => {
-    const cfg = await chrome.storage.local.get(['revalgo_server_url', 'revalgo_token']);
-    const baseUrl = cfg.revalgo_server_url || PRODUCTION_SERVER_URL;
+    const cfg = await chrome.storage.local.get(['revalgo_token']);
     const authToken = cfg.revalgo_token;
 
     if (!authToken) {
@@ -353,7 +305,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       // 1. Classify with AI
-      const aiRes = await fetch(`${baseUrl}/api/ai/classify`, {
+      const aiRes = await fetch(`${SERVER_URL}/api/ai/classify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -364,7 +316,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (!aiRes.ok) {
         if (aiRes.status === 401) {
-          throw new Error(`Unauthorized (401). Check your token and server URL in ⚙ Config.`);
+          throw new Error('Unauthorized (401). Please verify your token in ⚙ Config.');
         }
         let errMsg = 'AI classification failed';
         try {
@@ -379,7 +331,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const aiData = await aiRes.json();
 
       // 2. Post Question to Revalgo
-      const qRes = await fetch(`${baseUrl}/api/questions`, {
+      const qRes = await fetch(`${SERVER_URL}/api/questions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -419,8 +371,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       let message = err.message || 'Connection failed';
       if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
-        message = `Cannot connect to ${baseUrl}. Verify your server is reachable.`;
-        settingsPanel.classList.remove('hidden');
+        message = 'Cannot connect to Revalgo cloud. Please check your connection.';
       }
       showStatus(`Save Error: ${message}`, true);
       submitBtn.disabled = false;
