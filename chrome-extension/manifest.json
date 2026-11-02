@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Revalgo — DSA Spaced Repetition Companion",
+  "name": "Revalgo — Browser Spaced Repetition Companion",
   "version": "1.0.0",
-  "description": "1-Click problem and solution code logger for LeetCode and GeeksforGeeks into your Revalgo spaced repetition tracker.",
+  "description": "1-Click problem and solution code logger for LeetCode and GeeksforGeeks on Microsoft Edge, Chrome, and Chromium browsers.",
   "permissions": [
     "activeTab",
     "storage",
@@ -18,7 +18,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Revalgo Companion",
+    "default_title": "Revalgo Browser Companion",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

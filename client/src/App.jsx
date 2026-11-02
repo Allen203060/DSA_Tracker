@@ -1133,14 +1133,14 @@ function App() {
             Practice Mode (Random Question)
           </button>
 
-          {/* Chrome Companion Extension Trigger */}
+          {/* Browser Companion Extension Trigger */}
           <button
             onClick={() => setShowExtensionModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-500/15 to-purple-500/15 hover:from-indigo-500/25 hover:to-purple-500/25 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-semibold font-mono transition-all shadow-sm active:scale-[0.98]"
-            title="Download Revalgo Chrome Companion Extension"
+            title="Download Revalgo Browser Companion Extension (Edge, Chrome, Brave)"
           >
             <Zap className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-            <span className="hidden sm:inline">Extension</span>
+            <span className="hidden sm:inline">Browser Companion</span>
           </button>
 
           {/* Streak Indicator */}
@@ -1468,7 +1468,7 @@ function App() {
         </div>
       </section>
 
-      {/* --- REVALGO CHROME COMPANION BANNER --- */}
+      {/* --- REVALGO BROWSER COMPANION BANNER --- */}
       <section className="mb-6 glass-panel rounded-2xl p-4 sm:p-5 border border-indigo-500/30 bg-gradient-to-r from-indigo-950/[0.12] via-purple-950/[0.08] to-emerald-950/[0.1] shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <div className="w-11 h-11 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-500 shrink-0 shadow-inner">
@@ -1477,10 +1477,10 @@ function App() {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                Revalgo Chrome Companion
+                Revalgo Browser Companion
               </h3>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/25 font-mono uppercase font-semibold">
-                1-Click Auto-Logger
+                Edge &amp; Chrome
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 font-mono">
                 LeetCode &amp; GFG
@@ -2606,14 +2606,14 @@ function App() {
                 {/* Personal Extension API Token Box */}
                 <div className="p-3 rounded-xl bg-slate-200/50 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block font-mono">Chrome Extension Token</span>
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block font-mono">Browser Extension Token</span>
                     <span className="text-xs font-mono text-slate-700 dark:text-slate-300">••••••••••••••••••••••••</span>
                   </div>
                   <button
                     type="button"
                     onClick={handleCopyToken}
                     className="px-3 py-1.5 rounded-lg glass-input text-xs font-mono text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 flex items-center gap-1.5 active:scale-95 transition-all shadow-sm"
-                    title="Copy token to paste into Revalgo Chrome Extension config"
+                    title="Copy token to paste into Revalgo Browser Extension config"
                   >
                     {copiedToken ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedToken ? 'Copied!' : 'Copy Token'}</span>
@@ -2984,7 +2984,7 @@ function App() {
         </div>
       )}
 
-      {/* --- CHROME EXTENSION INSTALLATION & BENEFITS MODAL --- */}
+      {/* --- BROWSER EXTENSION INSTALLATION & BENEFITS MODAL --- */}
       {showExtensionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
           <div className="glass-panel w-full max-w-xl rounded-2xl p-6 sm:p-7 shadow-2xl border border-slate-200/40 dark:border-white/[0.08] relative max-h-[90vh] overflow-y-auto">
@@ -3003,12 +3003,12 @@ function App() {
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  Revalgo Chrome Companion
+                  Revalgo Browser Companion
                   <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
                     v1.0.0
                   </span>
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">1-Click LeetCode &amp; GeeksforGeeks Logger</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">1-Click LeetCode &amp; GeeksforGeeks Logger for Edge, Chrome &amp; Brave</p>
               </div>
             </div>
 
@@ -3064,7 +3064,7 @@ function App() {
             {/* Step-by-Step Installation */}
             <div className="space-y-3 mb-5">
               <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono">
-                Installation Steps (Takes ~30 seconds)
+                Installation Steps for Microsoft Edge &amp; Chrome (~30 seconds)
               </h4>
               <ol className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
                 <li className="flex items-start gap-2.5">
@@ -3073,11 +3073,11 @@ function App() {
                 </li>
                 <li className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-indigo-600/20 text-indigo-500 flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">2</span>
-                  <span>In Chrome, Brave, or Edge, visit <code className="bg-slate-200/70 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono select-all">chrome://extensions</code> in your address bar.</span>
+                  <span>In <strong>Microsoft Edge</strong>, visit <code className="bg-slate-200/70 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono select-all">edge://extensions</code> (or <code className="bg-slate-200/70 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono select-all">chrome://extensions</code> in Chrome) in your address bar.</span>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-indigo-600/20 text-indigo-500 flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">3</span>
-                  <span>Toggle on <strong>&quot;Developer mode&quot;</strong> in the top-right corner.</span>
+                  <span>Turn on <strong>&quot;Developer mode&quot;</strong> (in Edge it&apos;s a toggle in the left sidebar; in Chrome it&apos;s in the top-right corner).</span>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-indigo-600/20 text-indigo-500 flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">4</span>
