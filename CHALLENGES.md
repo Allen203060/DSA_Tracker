@@ -339,13 +339,14 @@ When clicking `[ ✨ Auto-Fill from Code ]` in the Revalgo Browser Companion ext
 
 **Solution:**
 1. **Interactive Solution Code Textarea & Dynamic Language Detection**: Replaced the read-only preview `<div>` with an interactive, syntax-styled `<textarea id="codeTextarea">`. Synced it bidirectionally with content script scraping, and added real-time language detection (`detectCodeLanguage`) so pasted code automatically updates the language badge (`cpp`, `python`, `java`, `javascript`, `go`).
-2. **1-Click Target Presets in Settings Drawer**: Added `[ 💻 Localhost (5000) ]` and `[ ☁️ Cloud (Render) ]` preset buttons directly in the extension's `⚙ Config` panel, enabling instantaneous 1-click toggling between local dev and cloud deployment.
-3. **Diagnostic Connection & Auth Error Handling**: Enhanced error handling in `popup.js` to catch network failures and 401 statuses, displaying clear diagnostic messages explaining how to align the Server Target URL with the running app.
-4. **Dual 1-Click Copy Boxes in Web App**: Added dynamic `1. Revalgo Server Target URL` alongside `2. Your Account API Token` with 1-click copy buttons in the web dashboard's extension modal.
-5. **Repackaged Self-Hosted ZIP**: Rebuilt and distributed the updated extension bundle at `client/public/revalgo-companion-extension.zip`.
+2. **Persistent Storage Auto-Healing & Target Presets**: Upgraded `popup.js` to automatically sanitize and migrate legacy `dsa-tracker.onrender.com` URLs to `http://localhost:5000` inside `chrome.storage.local`. Replaced hardcoded placeholders with `[ 💻 Localhost (5000) ]` and `[ 🌐 Custom Host ]` presets.
+3. **Zero-Click Revalgo Tab Token Discovery**: Integrated programmatic tab queries searching active `localhost` Revalgo tabs to automatically discover and hydrate `revalgo_token` into extension storage without requiring manual copy-pasting.
+4. **Diagnostic Connection & Auto-Drawer Reveal**: Enhanced error handling in `popup.js` to automatically open the `⚙ Config` drawer upon connection failures, showing users exactly what URL failed and how to connect to Localhost 5000.
+5. **Dual 1-Click Copy Boxes in Web App**: Added dynamic `1. Revalgo Server Target URL` alongside `2. Your Account API Token` with 1-click copy buttons in the web dashboard's extension modal.
+6. **Repackaged Self-Hosted ZIP**: Rebuilt and distributed the updated extension bundle at `client/public/revalgo-companion-extension.zip`.
 
 **Key Takeaway (Interview Insight):**
-When shipping client-side browser extensions for full-stack applications with dual deployment modes (local dev and cloud hosting), never hardcode remote server origins or treat DOM scraping as an unrecoverable single point of failure. Provide editable fallback inputs for manual user override, rapid server target presets with environment detection, and rich diagnostic error states to ensure seamless developer and user workflows.
+When shipping client-side browser extensions for full-stack applications with dual deployment modes (local dev and cloud hosting), never hardcode remote server origins or treat DOM scraping as an unrecoverable single point of failure. Provide editable fallback inputs for manual user override, self-healing storage migrations, zero-click active tab token detection, and rich diagnostic error states to ensure seamless developer and user workflows.
 
 
 
