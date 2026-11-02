@@ -6,7 +6,8 @@ import {
   ChevronDown, ChevronUp, Trash2, ExternalLink, Layers, Folder, 
   ChevronRight, Flame, Trophy, Activity, Code, Play, Copy, Check, 
   Plus, RotateCcw, Sparkles, CheckCircle, Edit3, Save, Sun, Moon,
-  User as UserIcon, LogOut, Key, ShieldCheck, UserPlus, ArrowLeft, Lock, Info, HelpCircle
+  User as UserIcon, LogOut, Key, ShieldCheck, UserPlus, ArrowLeft, Lock, Info, HelpCircle,
+  Skull, AlertTriangle, Hourglass
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import ThreeBackground from './components/ThreeBackground';
@@ -120,12 +121,35 @@ function App() {
   const [isGeneratingBoilerplate, setIsGeneratingBoilerplate] = useState(false);
   const [codeEvaluationResult, setCodeEvaluationResult] = useState(null);
 
-  // Heatmap & Learning Analytics State
-  const [activityData, setActivityData] = useState({ 
+  // Heatmap & Learning Analytics State (Wall of Fame vs Wall of Shame)
+  const INITIAL_ACTIVITY_DATA = { 
     dailyActivity: {}, 
-    stats: { currentStreak: 0, longestStreak: 0, totalNew: 0, totalRecalls: 0 } 
-  });
+    shameActivity: {},
+    stats: { 
+      currentStreak: 0, 
+      longestStreak: 0, 
+      totalNew: 0, 
+      totalRecalls: 0,
+      totalSlackedDays: 0,
+      currentSlackedStreak: 0,
+      longestSlackedStreak: 0,
+      activeDebtCount: 0
+    } 
+  };
+  const [activityData, setActivityData] = useState(INITIAL_ACTIVITY_DATA);
+  const [wallMode, setWallMode] = useState('fame'); // 'fame' | 'shame'
+  const [isWallFlipping, setIsWallFlipping] = useState(false);
   const [hoveredCell, setHoveredCell] = useState(null);
+
+  const handleToggleWallMode = () => {
+    setIsWallFlipping(true);
+    setTimeout(() => {
+      setWallMode(prev => prev === 'fame' ? 'shame' : 'fame');
+    }, 180);
+    setTimeout(() => {
+      setIsWallFlipping(false);
+    }, 550);
+  };
 
   // Apply and persist theme
   useEffect(() => {
@@ -323,7 +347,7 @@ function App() {
     } else {
       setQuestions([]);
       setAllQuestions([]);
-      setActivityData({ dailyActivity: {}, stats: { currentStreak: 0, longestStreak: 0, totalNew: 0, totalRecalls: 0 } });
+      setActivityData(INITIAL_ACTIVITY_DATA);
     }
   }, [currentUser, viewMode, dailyRevisionLimit]);
 
@@ -462,7 +486,7 @@ function App() {
     setCurrentUser(null);
     setQuestions([]);
     setAllQuestions([]);
-    setActivityData({ dailyActivity: {}, stats: { currentStreak: 0, longestStreak: 0, totalNew: 0, totalRecalls: 0 } });
+    setActivityData(INITIAL_ACTIVITY_DATA);
     setAuthMode('login');
     setAuthUsername('');
     setAuthPassword('');
@@ -1023,118 +1047,280 @@ function App() {
         </div>
       </header>
 
-      {/* --- PROGRESS & ACTIVITY DASHBOARD --- */}
+      {/* --- PROGRESS & ACTIVITY DASHBOARD (WALL OF FAME / WALL OF SHAME) --- */}
       <section className="mb-6 glass-panel rounded-2xl p-5 sm:p-6 space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.06] pb-3">
-          <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            <h2 className="text-sm font-semibold tracking-wide text-slate-800 dark:text-slate-200 uppercase font-mono">
-              Learning Activity &amp; Consistency
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 dark:border-white/[0.06] pb-3">
+          <div className="flex items-center gap-2.5">
+            {wallMode === 'fame' ? (
+              <Activity className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+            ) : (
+              <Skull className="w-4 h-4 text-rose-500 animate-pulse" />
+            )}
+            <h2 className="text-sm font-semibold tracking-wide uppercase font-mono flex items-center gap-2">
+              <span className={wallMode === 'fame' ? 'text-slate-800 dark:text-slate-200' : 'text-rose-600 dark:text-rose-400 font-bold'}>
+                {wallMode === 'fame' ? 'Wall of Fame // Activity & Mastery' : 'Wall of Shame // Inactivity & Debt Mirror'}
+              </span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wider ${
+                wallMode === 'fame' 
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' 
+                  : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+              }`}>
+                {wallMode === 'fame' ? 'Fame Mode' : 'Shame Mode'}
+              </span>
             </h2>
           </div>
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-            Total Solved: <strong className="text-slate-900 dark:text-slate-100">{allQuestions.length}</strong>
-          </span>
+
+          <div className="flex items-center gap-3">
+            {/* Interactive 3D Flip Toggle */}
+            <button
+              onClick={handleToggleWallMode}
+              disabled={isWallFlipping}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold font-mono border transition-all duration-300 shadow-sm active:scale-95 ${
+                wallMode === 'fame'
+                  ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:border-rose-500/50 hover:shadow-rose-500/10'
+                  : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:border-emerald-500/50 hover:shadow-emerald-500/10'
+              }`}
+              title="Flip between Wall of Fame and Wall of Shame"
+            >
+              {wallMode === 'fame' ? (
+                <>
+                  <Skull className="w-3.5 h-3.5 text-rose-500 animate-bounce" />
+                  <span>Flip to Wall of Shame</span>
+                </>
+              ) : (
+                <>
+                  <Trophy className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Flip to Wall of Fame</span>
+                </>
+              )}
+            </button>
+
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-mono hidden sm:inline">
+              {wallMode === 'fame' ? (
+                <>Total Solved: <strong className="text-slate-900 dark:text-slate-100">{allQuestions.length}</strong></>
+              ) : (
+                <>Overdue Debt: <strong className="text-rose-600 dark:text-rose-400">{activityData.stats.activeDebtCount || 0}</strong></>
+              )}
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          {/* Left 4 Stat Cards with subtle depth hover */}
+          {/* Left 4 Stat Cards with Dynamic Fame vs Shame Metrics */}
           <div className="lg:col-span-4 grid grid-cols-2 gap-3">
-            <div className="glass-panel p-3.5 rounded-xl hover:border-amber-500/30 transition-all">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Current</span>
-                <Flame className="w-4 h-4 text-amber-500 dark:text-amber-400" />
-              </div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{activityData.stats.currentStreak} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">days</span></p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Active Streak</p>
-            </div>
+            {wallMode === 'fame' ? (
+              <>
+                <div className="glass-panel p-3.5 rounded-xl hover:border-amber-500/30 transition-all">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Current</span>
+                    <Flame className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                  </div>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{activityData.stats.currentStreak} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">days</span></p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Active Streak</p>
+                </div>
 
-            <div className="glass-panel p-3.5 rounded-xl hover:border-indigo-500/30 transition-all">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Record</span>
-                <Trophy className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{activityData.stats.longestStreak} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">days</span></p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Best Streak</p>
-            </div>
+                <div className="glass-panel p-3.5 rounded-xl hover:border-indigo-500/30 transition-all">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Record</span>
+                    <Trophy className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{activityData.stats.longestStreak} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">days</span></p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Best Streak</p>
+                </div>
 
-            <div className="glass-panel p-3.5 rounded-xl hover:border-emerald-500/30 transition-all">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Problems</span>
-                <BrainCircuit className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{activityData.stats.totalNew || allQuestions.length}</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Logged Solved</p>
-            </div>
+                <div className="glass-panel p-3.5 rounded-xl hover:border-emerald-500/30 transition-all">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Problems</span>
+                    <BrainCircuit className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{activityData.stats.totalNew || allQuestions.length}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Logged Solved</p>
+                </div>
 
-            <div className="glass-panel p-3.5 rounded-xl hover:border-purple-500/30 transition-all">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Reviews</span>
-                <RotateCcw className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-              </div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{activityData.stats.totalRecalls}</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Recalls Completed</p>
-            </div>
+                <div className="glass-panel p-3.5 rounded-xl hover:border-purple-500/30 transition-all">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Reviews</span>
+                    <RotateCcw className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{activityData.stats.totalRecalls}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Recalls Completed</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="glass-panel p-3.5 rounded-xl border-rose-500/30 bg-rose-500/[0.04] hover:border-rose-500/50 transition-all">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] text-rose-400 font-medium uppercase tracking-wider">Revision Debt</span>
+                    <AlertTriangle className="w-4 h-4 text-rose-500 animate-pulse" />
+                  </div>
+                  <p className="text-2xl font-bold text-rose-600 dark:text-rose-400 font-mono">{activityData.stats.activeDebtCount || 0} <span className="text-xs font-normal text-rose-400">items</span></p>
+                  <p className="text-[11px] text-rose-400/80 mt-0.5">Overdue Problems</p>
+                </div>
+
+                <div className="glass-panel p-3.5 rounded-xl border-rose-500/30 bg-rose-500/[0.04] hover:border-rose-500/50 transition-all">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] text-rose-400 font-medium uppercase tracking-wider">Slacking</span>
+                    <Skull className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                  </div>
+                  <p className="text-2xl font-bold text-rose-600 dark:text-rose-400 font-mono">{activityData.stats.currentSlackedStreak || 0} <span className="text-xs font-normal text-rose-400">days</span></p>
+                  <p className="text-[11px] text-rose-400/80 mt-0.5">Consecutive Idle</p>
+                </div>
+
+                <div className="glass-panel p-3.5 rounded-xl border-amber-500/30 bg-amber-500/[0.04] hover:border-amber-500/50 transition-all">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] text-amber-500 dark:text-amber-400 font-medium uppercase tracking-wider">Worst Slump</span>
+                    <Hourglass className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                  </div>
+                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 font-mono">{activityData.stats.longestSlackedStreak || 0} <span className="text-xs font-normal text-amber-400">days</span></p>
+                  <p className="text-[11px] text-amber-500/80 mt-0.5">Longest Drought</p>
+                </div>
+
+                <div className="glass-panel p-3.5 rounded-xl border-rose-500/20 bg-rose-500/[0.04] hover:border-rose-500/40 transition-all">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] text-rose-400 font-medium uppercase tracking-wider">Total Ghosted</span>
+                    <RotateCcw className="w-4 h-4 text-rose-400" />
+                  </div>
+                  <p className="text-2xl font-bold text-rose-600 dark:text-rose-400 font-mono">{activityData.stats.totalSlackedDays || 0} <span className="text-xs font-normal text-rose-400">days</span></p>
+                  <p className="text-[11px] text-rose-400/80 mt-0.5">Slacked Since Start</p>
+                </div>
+              </>
+            )}
           </div>
 
-          {/* Right Contribution Heatmap Matrix (No Harsh White Boxes) */}
-          <div className="lg:col-span-8 glass-panel p-4 rounded-xl flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2 font-mono">
-              <span>Revision Heatmap (Past 24 Weeks)</span>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px]">Less</span>
-                <div className="w-2.5 h-2.5 bg-slate-200/60 dark:bg-slate-800/40 rounded-sm border border-slate-300/30 dark:border-white/[0.04]"></div>
-                <div className="w-2.5 h-2.5 bg-emerald-200/80 dark:bg-emerald-950 rounded-sm border border-emerald-300/40 dark:border-emerald-900/40"></div>
-                <div className="w-2.5 h-2.5 bg-emerald-400 dark:bg-emerald-700 rounded-sm border border-emerald-500 dark:border-emerald-600/40"></div>
-                <div className="w-2.5 h-2.5 bg-emerald-600 dark:bg-emerald-500 rounded-sm border border-emerald-600 dark:border-emerald-400"></div>
-                <span className="text-[10px]">More</span>
+          {/* Right Contribution Heatmap Matrix with 3D Flip */}
+          <div className="lg:col-span-8 perspective-container">
+            <div 
+              style={{
+                transform: isWallFlipping ? 'rotateX(90deg)' : 'rotateX(0deg)',
+              }}
+              className={`glass-panel p-4 rounded-xl flex flex-col justify-between flip-panel transition-all duration-500 ${
+                wallMode === 'shame' 
+                  ? 'border-rose-500/40 shame-pulse bg-gradient-to-br from-rose-950/[0.06] via-transparent to-red-950/[0.08]' 
+                  : 'hover:border-slate-300 dark:hover:border-white/10'
+              }`}
+            >
+              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2 font-mono">
+                <span className="flex items-center gap-1.5 font-semibold">
+                  {wallMode === 'fame' ? (
+                    <>
+                      <Activity className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Revision Heatmap (Past 24 Weeks)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Skull className="w-3.5 h-3.5 text-rose-500" />
+                      <span className="text-rose-600 dark:text-rose-400">Accountability Mirror // Slacking Severity</span>
+                    </>
+                  )}
+                </span>
+                
+                {/* Legend */}
+                <div className="flex items-center gap-1.5">
+                  {wallMode === 'fame' ? (
+                    <>
+                      <span className="text-[10px]">Less</span>
+                      <div className="w-2.5 h-2.5 bg-slate-200/60 dark:bg-slate-800/40 rounded-sm border border-slate-300/30 dark:border-white/[0.04]" title="0 solved/reviewed"></div>
+                      <div className="w-2.5 h-2.5 bg-emerald-200/80 dark:bg-emerald-950 rounded-sm border border-emerald-300/40 dark:border-emerald-900/40" title="1 problem/review"></div>
+                      <div className="w-2.5 h-2.5 bg-emerald-400 dark:bg-emerald-700 rounded-sm border border-emerald-500 dark:border-emerald-600/40" title="2 problems/reviews"></div>
+                      <div className="w-2.5 h-2.5 bg-emerald-600 dark:bg-emerald-500 rounded-sm border border-emerald-600 dark:border-emerald-400" title="3+ problems/reviews"></div>
+                      <span className="text-[10px]">More</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-[10px] text-emerald-500 font-semibold">Clean</span>
+                      <div className="w-2.5 h-2.5 bg-slate-200/60 dark:bg-slate-800/40 rounded-sm border border-slate-300/30 dark:border-white/[0.04]" title="Active/Disciplined or Prior"></div>
+                      <div className="w-2.5 h-2.5 bg-amber-400/35 dark:bg-amber-950/70 rounded-sm border border-amber-500/50" title="Idle (1 Day)"></div>
+                      <div className="w-2.5 h-2.5 bg-rose-500/60 dark:bg-rose-900/70 rounded-sm border border-rose-500/70" title="Missed Repetition (2 Days)"></div>
+                      <div className="w-2.5 h-2.5 bg-rose-600 dark:bg-rose-950 rounded-sm border border-rose-500 shadow-[0_0_6px_rgba(225,29,72,0.8)]" title="Critical Ghosting (3+ Days)"></div>
+                      <span className="text-[10px] text-rose-500 font-bold">Ghosted</span>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="flex gap-2 items-center">
-              <div className="flex flex-col text-[10px] text-slate-400 dark:text-slate-500 justify-between h-[105px] w-5 font-mono">
-                <span>M</span><span>W</span><span>F</span>
+              <div className="flex gap-2 items-center">
+                <div className="flex flex-col text-[10px] text-slate-400 dark:text-slate-500 justify-between h-[105px] w-5 font-mono">
+                  <span>M</span><span>W</span><span>F</span>
+                </div>
+
+                <div className="grid grid-rows-7 grid-flow-col gap-1.5 flex-1 overflow-x-auto pb-1">
+                  {Array.from({ length: 168 }).map((_, i) => {
+                    const d = new Date();
+                    d.setDate(d.getDate() - (167 - i));
+                    const dateStr = d.toISOString().split('T')[0];
+                    const dayData = activityData.dailyActivity[dateStr] || { newCount: 0, recallCount: 0, total: 0 };
+                    const shameData = (activityData.shameActivity && activityData.shameActivity[dateStr]) || { shameLevel: 0, status: 'clean', label: 'Clean' };
+
+                    let bgClass = "bg-slate-200/60 dark:bg-slate-800/40 border border-slate-300/30 dark:border-white/[0.03]";
+
+                    if (wallMode === 'fame') {
+                      const total = dayData.total;
+                      if (total === 1) bgClass = "bg-emerald-200/80 dark:bg-emerald-950 border border-emerald-300/50 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-400";
+                      else if (total === 2) bgClass = "bg-emerald-400 dark:bg-emerald-700 border border-emerald-500 dark:border-emerald-600/60 text-white dark:text-emerald-100 shadow-[0_0_6px_rgba(16,185,129,0.3)]";
+                      else if (total >= 3) bgClass = "bg-emerald-600 dark:bg-emerald-500 border border-emerald-600 dark:border-emerald-400 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]";
+                    } else {
+                      // Wall of Shame coloring
+                      if (shameData.shameLevel === 1) {
+                        bgClass = "bg-amber-400/25 dark:bg-amber-950/60 border border-amber-500/40 text-amber-300 shadow-[0_0_4px_rgba(245,158,11,0.2)]";
+                      } else if (shameData.shameLevel === 2) {
+                        bgClass = "bg-rose-500/60 dark:bg-rose-900/70 border border-rose-500/70 text-rose-100 shadow-[0_0_8px_rgba(244,63,94,0.4)]";
+                      } else if (shameData.shameLevel >= 3) {
+                        bgClass = "bg-rose-600 dark:bg-rose-950 border border-rose-500 text-white shadow-[0_0_12px_rgba(225,29,72,0.7)] animate-pulse";
+                      }
+                    }
+
+                    return (
+                      <div
+                        key={i}
+                        onMouseEnter={() => setHoveredCell({ date: dateStr, data: dayData, shame: shameData })}
+                        onMouseLeave={() => setHoveredCell(null)}
+                        className={`w-3.5 h-3.5 rounded-[3px] transition-all duration-150 cursor-pointer ${bgClass} hover:scale-125 hover:z-10`}
+                      />
+                    );
+                  })}
+                </div>
               </div>
 
-              <div className="grid grid-rows-7 grid-flow-col gap-1.5 flex-1 overflow-x-auto pb-1">
-                {Array.from({ length: 168 }).map((_, i) => {
-                  const d = new Date();
-                  d.setDate(d.getDate() - (167 - i));
-                  const dateStr = d.toISOString().split('T')[0];
-                  const dayData = activityData.dailyActivity[dateStr] || { newCount: 0, recallCount: 0, total: 0 };
-                  const total = dayData.total;
-
-                  // Smooth translucent cells blending with glass theme (zero harsh white boxes)
-                  let bgClass = "bg-slate-200/60 dark:bg-slate-800/40 border border-slate-300/30 dark:border-white/[0.03]";
-                  if (total === 1) bgClass = "bg-emerald-200/80 dark:bg-emerald-950 border border-emerald-300/50 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-400";
-                  else if (total === 2) bgClass = "bg-emerald-400 dark:bg-emerald-700 border border-emerald-500 dark:border-emerald-600/60 text-white dark:text-emerald-100 shadow-[0_0_6px_rgba(16,185,129,0.3)]";
-                  else if (total >= 3) bgClass = "bg-emerald-600 dark:bg-emerald-500 border border-emerald-600 dark:border-emerald-400 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]";
-
-                  return (
-                    <div
-                      key={i}
-                      onMouseEnter={() => setHoveredCell({ date: dateStr, data: dayData })}
-                      onMouseLeave={() => setHoveredCell(null)}
-                      className={`w-3.5 h-3.5 rounded-[3px] transition-all duration-150 cursor-pointer ${bgClass} hover:scale-125 hover:z-10`}
-                    />
-                  );
-                })}
+              {/* Hover Tooltip / Detail Card */}
+              <div className="min-h-[28px] mt-2 pt-2 border-t border-slate-200/60 dark:border-white/[0.04] text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between font-mono">
+                {hoveredCell ? (
+                  wallMode === 'fame' ? (
+                    <>
+                      <span className="text-slate-700 dark:text-slate-300 font-semibold">{hoveredCell.date}</span>
+                      <div className="flex gap-4">
+                        <span>Solved: <strong className="text-slate-900 dark:text-slate-100">{hoveredCell.data?.newCount || 0}</strong></span>
+                        <span>Recalls: <strong className="text-emerald-600 dark:text-emerald-400">{hoveredCell.data?.recallCount || 0}</strong></span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-700 dark:text-slate-300 font-semibold">{hoveredCell.date}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-mono ${
+                          hoveredCell.shame?.shameLevel === 3
+                            ? 'bg-rose-600 text-white font-bold animate-pulse'
+                            : hoveredCell.shame?.shameLevel === 2
+                            ? 'bg-rose-500/20 text-rose-500 border border-rose-500/30'
+                            : hoveredCell.shame?.shameLevel === 1
+                            ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
+                            : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/20'
+                        }`}>
+                          {hoveredCell.shame?.shameLevel === 3 ? 'CRITICAL GHOSTING' : hoveredCell.shame?.shameLevel === 2 ? 'MISSED RECALL' : hoveredCell.shame?.shameLevel === 1 ? 'IDLE DAY' : 'DISCIPLINED'}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-600 dark:text-slate-300 truncate max-w-[340px]">
+                        {hoveredCell.shame?.label}
+                      </span>
+                    </>
+                  )
+                ) : (
+                  <span className="text-slate-400 text-[11px]">
+                    {wallMode === 'fame'
+                      ? 'Hover over any day cell to view daily activity metrics'
+                      : 'Hover over any day cell to inspect accountability and missed streak details'}
+                  </span>
+                )}
               </div>
-            </div>
-
-            {/* Hover Tooltip / Detail Card */}
-            <div className="min-h-[28px] mt-2 pt-2 border-t border-slate-200/60 dark:border-white/[0.04] text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between font-mono">
-              {hoveredCell ? (
-                <>
-                  <span className="text-slate-700 dark:text-slate-300 font-semibold">{hoveredCell.date}</span>
-                  <div className="flex gap-4">
-                    <span>Solved: <strong className="text-slate-900 dark:text-slate-100">{hoveredCell.data.newCount}</strong></span>
-                    <span>Recalls: <strong className="text-emerald-600 dark:text-emerald-400">{hoveredCell.data.recallCount}</strong></span>
-                  </div>
-                </>
-              ) : (
-                <span className="text-slate-400 text-[11px]">Hover over any day cell to view daily activity metrics</span>
-              )}
             </div>
           </div>
         </div>

@@ -264,3 +264,18 @@ When ReactMarkdown receives a string starting with `### ` containing literal `\n
 4. Authored and executed `scripts/sanitize_enhanced_notes.js` to migrate and permanently clean all 16 affected questions in MongoDB Atlas and 13 in local MongoDB.
 **Key Takeaway (Interview Insight):**
 LLM structured output parsers often preserve literal JSON backslash escapes in nested string fields. If a downstream consumer expects raw multiline Markdown, unescaping must occur before passing the text into markdown AST parsers; otherwise, a single initial `#` will swallow the entire payload into a single header node and trigger cascading CSS inheritance bugs.
+
+## Challenge 23: Anti-Contribution Heatmap Inactivity & Spaced Repetition Debt Tracking
+**The Problem:**
+Traditional contribution heatmaps (like GitHub's green commit matrix) suffer from "positive bias"—they only highlight active days. In spaced repetition and DSA preparation, the most critical risk is consistency decay: skipping repetition intervals and allowing reviews to snowball into unmanageable debt. Simply inverting the green colors to red is misleading because days prior to a user joining or days where no review was due should not be falsely punished.
+**Root Cause:**
+1. A naive inverse of daily activity (`count === 0 -> red`) treats all 168 historical days prior to account inception as "slacking off", causing massive false positives.
+2. Inactivity severity is non-linear: a single rest day is healthy (Level 1 Idle), missing 2 consecutive days skips SM-2 repetition windows (Level 2 Missed Recall), and 3+ consecutive days constitutes critical ghosting (Level 3 Ghosting).
+3. Without 3D spatial separation, toggling between Fame and Shame feels abrupt and flat.
+**Solution:**
+1. **Calibrated Baseline**: In `questionController.js`, computed `earliestDate` across both question creation timestamps and historical review logs. Days prior to account creation are marked as `status: 'prior'` (Level 0 Clean).
+2. **Sequential Streak Engine**: Implemented sequential chronological iteration across the 168-day sliding window, accumulating `runningSlackedStreak` and resetting to 0 whenever `dayData.total > 0`. Computed accurate `currentSlackedStreak`, `longestSlackedStreak`, and live `activeDebtCount` (questions where `nextReviewDate <= now`).
+3. **Hardware-Accelerated 3D Flip**: Introduced CSS 3D perspective (`1200px`) and `rotateX(90deg)` to `rotateX(0deg)` transition curves with `.shame-pulse` keyframe shockwaves, dynamically swapping metrics and color palettes with zero layout shift.
+**Key Takeaway (Interview Insight):**
+Negative behavioral metrics (accountability counters, slacking streaks) require anchoring against account inception and historical velocity. Chronologically walking a sliding window rather than mapping independent cells in isolation allows calculating both progressive severity levels and consecutive drought records with $O(N)$ efficiency.
+

@@ -179,4 +179,44 @@ describe('Question API Endpoints & Multi-User Authentication', () => {
     expect(res.status).toBe(200);
     expect(['Random Solved Problem 1', 'Random Solved Problem 2']).toContain(res.body.title);
   });
+
+  it('should calculate Wall of Shame metrics and shame activity matrix in getActivityStats', async () => {
+    // Create an overdue question to verify activeDebtCount
+    const overdueDate = new Date();
+    overdueDate.setDate(overdueDate.getDate() - 5);
+
+    await Question.create({
+      title: 'Overdue DP Problem',
+      notes: 'Must revise state transitions',
+      userId: testUser.id,
+      nextReviewDate: overdueDate,
+      createdAt: overdueDate
+    });
+
+    const res = await request(app)
+      .get('/api/analytics/activity')
+      .set('Authorization', `Bearer ${authToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('dailyActivity');
+    expect(res.body).toHaveProperty('shameActivity');
+    expect(res.body).toHaveProperty('stats');
+
+    // Check Fame & Shame stats
+    expect(res.body.stats).toHaveProperty('currentStreak');
+    expect(res.body.stats).toHaveProperty('longestStreak');
+    expect(res.body.stats).toHaveProperty('activeDebtCount');
+    expect(res.body.stats.activeDebtCount).toBeGreaterThanOrEqual(1);
+    expect(res.body.stats).toHaveProperty('totalSlackedDays');
+    expect(res.body.stats).toHaveProperty('currentSlackedStreak');
+    expect(res.body.stats).toHaveProperty('longestSlackedStreak');
+
+    // Check shameActivity structure
+    const keys = Object.keys(res.body.shameActivity);
+    expect(keys.length).toBe(168);
+    const sampleDay = res.body.shameActivity[keys[keys.length - 1]];
+    expect(sampleDay).toHaveProperty('shameLevel');
+    expect(sampleDay).toHaveProperty('status');
+  });
 });
+

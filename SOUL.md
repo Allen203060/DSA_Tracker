@@ -93,12 +93,18 @@
   - **Google Setup Assistant**: Integrated a zero-friction configuration modal on the frontend providing step-by-step guidance on setting up Google Cloud Console credentials and `VITE_GOOGLE_CLIENT_ID`.
   - **Comprehensive Auth Test Suite**: Authored `server/tests/auth.test.js` validating registration, credential verification, recovery key resets, change password workflows, and token security (14/14 server tests passing).
 
-- **Phase 20: AI Summary Markdown Formatting, Unicode Decoding & Escape Sanitization** (Current):
+- **Phase 20: AI Summary Markdown Formatting, Unicode Decoding & Escape Sanitization**:
   - **Root Cause Remediation for All-Caps Bloat**: Diagnosed LLM structured output escape issue where `withStructuredOutput` serialized line breaks as literal `\n` and emojis as `\uXXXX`. Because markdown requires real `\n` characters to break lines, ReactMarkdown parsed the entire 1,000+ character summary as a single `###` heading, turning all text uppercase via heading CSS.
   - **Bidirectional Sanitization Engine**: Authored `cleanMarkdownNotes` in both `server/src/utils/cleanMarkdown.js` and `client/src/utils/cleanMarkdown.js`, automatically unescaping literal `\n`, `\r`, and multi-digit unicode sequences (`\u270e`, `\u1f6e0`, `\u{1f6e0}`) and stripping stray backslashes.
   - **Rich Markdown Typography**: Enhanced `ReactMarkdown` component map in `client/src/App.jsx` with dedicated, readable styles for `ul`, `ol`, `li`, `strong`, `p`, and `h3`, removing forced heading capitalization.
   - **Database Sanitization Migration**: Created and executed `scripts/sanitize_enhanced_notes.js` sanitizing all 16 affected questions in MongoDB Atlas and 13 in local MongoDB, restoring proper visual formatting across all user cards.
 
+- **Phase 21: Wall of Shame & 3D Accountability Mirror** (Current):
+  - **Accountability Inversion Matrix**: Conceived and implemented the "Wall of Shame"—a counter-dashboard to the traditional GitHub-style contribution heatmap. Instead of celebrating green activity, it exposes inactivity slumps, missed SuperMemo-2 spaced repetitions, and accumulated revision debt.
+  - **Multi-Tiered Slacking Severity**: Architected a 4-tier inactivity classification in `server/src/controllers/questionController.js` (`0`: Clean/Prior, `1`: Idle Day, `2`: Missed Repetitions, `3`: Critical Ghosting Streak >= 3 days) calibrated against the user's initial activity date.
+  - **Shame Analytics**: Computes real-time `activeDebtCount` (overdue questions awaiting review), `currentSlackedStreak` (consecutive idle days), `longestSlackedStreak` (worst drought), and `totalSlackedDays`.
+  - **Interactive 3D Flipping Dashboard**: Added a 1200px perspective 3D card flip animation (`.flip-panel` with dynamic `rotateX(90deg)` to `rotateX(0deg)`) triggered by a toggle button `[ 🟢 Wall of Fame ]` <-> `[ 🩸 Wall of Shame ]`.
+  - **Dynamic Blood-Crimson Aesthetic**: In Shame Mode, the 4 left stat cards transform into Revision Debt, Slacking, Worst Slump, and Total Ghosted, and the heatmap matrix shifts to high-contrast amber/rose/crimson cells with a pulsing red ambient glow (`shame-pulse`) and custom accountability tooltips.
 
 ## Next Logical Steps
 1. 3D Knowledge Graph (`react-force-graph`) to visualize pattern dependencies.

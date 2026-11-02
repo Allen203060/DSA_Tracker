@@ -163,3 +163,27 @@ html.theme-transitioning *::after {
     scroll-behavior: auto !important;
   }
 }
+
+/* Wall of Shame 3D Flip & Matrix Utilities */
+.perspective-container {
+  perspective: 1200px;
+}
+
+.flip-panel {
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease, border-color 0.4s ease;
+  transform-style: preserve-3d;
+}
+
+.shame-pulse {
+  animation: shame-shockwave 2.2s infinite ease-in-out;
+}
+
+@keyframes shame-shockwave {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 16px 2px rgba(225, 29, 72, 0.45);
+  }
+}
+

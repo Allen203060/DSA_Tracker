@@ -307,13 +307,95 @@ export const getActivityStats = async (req, res) => {
       });
     }
 
+    // --- Wall of Shame Metrics (Inactivity, Missed Repetitions, and Debt) ---
+    const now = new Date();
+    const activeDebtCount = questions.filter(q => q.nextReviewDate && new Date(q.nextReviewDate) <= now).length;
+
+    let earliestDate = null;
+    questions.forEach(q => {
+      if (q.createdAt) {
+        const cDate = new Date(q.createdAt);
+        if (!earliestDate || cDate < earliestDate) earliestDate = cDate;
+      }
+      if (q.reviewHistory && q.reviewHistory.length > 0) {
+        q.reviewHistory.forEach(r => {
+          const rDate = new Date(r.reviewedAt);
+          if (!earliestDate || rDate < earliestDate) earliestDate = rDate;
+        });
+      }
+    });
+
+    const shameActivity = {};
+    let totalSlackedDays = 0;
+    let currentSlackedStreak = 0;
+    let longestSlackedStreak = 0;
+
+    if (earliestDate) {
+      const earliestDateStr = earliestDate.toISOString().split('T')[0];
+      const todayStr = now.toISOString().split('T')[0];
+      let runningSlackedStreak = 0;
+
+      for (let i = 0; i < 168; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - (167 - i));
+        const dStr = d.toISOString().split('T')[0];
+
+        if (dStr < earliestDateStr) {
+          shameActivity[dStr] = { shameLevel: 0, status: 'prior', label: 'Prior to joining' };
+          continue;
+        }
+
+        const act = dailyActivity[dStr];
+        if (act && act.total > 0) {
+          runningSlackedStreak = 0;
+          shameActivity[dStr] = {
+            shameLevel: 0,
+            status: 'clean',
+            label: `Disciplined: ${act.newCount} solved, ${act.recallCount} recalls`
+          };
+        } else {
+          runningSlackedStreak += 1;
+          totalSlackedDays += 1;
+          if (runningSlackedStreak > longestSlackedStreak) longestSlackedStreak = runningSlackedStreak;
+
+          let level = 1;
+          let label = "Idle Day: Rested with zero problems solved";
+          if (runningSlackedStreak === 2) {
+            level = 2;
+            label = "Missed Repetitions: 2 consecutive days of spaced repetition skipped!";
+          } else if (runningSlackedStreak >= 3) {
+            level = 3;
+            label = `Critical Ghosting: ${runningSlackedStreak} consecutive days slacked!`;
+          }
+
+          shameActivity[dStr] = {
+            shameLevel: level,
+            status: 'shame',
+            slackedStreak: runningSlackedStreak,
+            label
+          };
+        }
+      }
+
+      currentSlackedStreak = runningSlackedStreak;
+      if (dailyActivity[todayStr] && dailyActivity[todayStr].total > 0) {
+        currentSlackedStreak = 0;
+      }
+    }
+
     res.json({
       dailyActivity,
+      shameActivity,
       stats: {
         currentStreak,
         longestStreak,
         totalNew,
-        totalRecalls
+        totalRecalls,
+        // Wall of Shame stats
+        totalSlackedDays,
+        currentSlackedStreak,
+        longestSlackedStreak,
+        activeDebtCount
       }
     });
   } catch (error) {
