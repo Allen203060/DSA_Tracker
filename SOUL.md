@@ -86,12 +86,19 @@
   - **Public Health Endpoint**: Implemented `/api/health` in `server/src/routes/apiRoutes.js` providing sub-millisecond status responses for monitoring services.
   - **Active Session Heartbeat**: Added a 10-minute periodic keepalive ping in `client/src/App.jsx` preventing Render free-tier instances from spinning down while any browser tab remains open.
   - **Cold-Start Awareness Toast**: Implemented an automated wake-up detection heuristic that displays a glassmorphism floating status badge (`Connecting to cloud backend...`) if cloud spin-up exceeds 2 seconds, eliminating user confusion during cold boots.
-- **Phase 19: Password Recovery, Account Security & Google OAuth 2.0 Integration** (Current):
+- **Phase 19: Password Recovery, Account Security & Google OAuth 2.0 Integration**:
   - **Account Recovery Protocol**: Implemented an account recovery architecture utilizing personal `recoveryKey` strings generated during registration and account bootstrapping (`server/src/controllers/authController.js`, `server/src/models/User.js`). Added `/api/auth/reset-password` allowing peers to reset lost credentials without administrative intervention.
   - **Authenticated Password Management**: Added `/api/auth/change-password` requiring active JWT authentication and current password verification, allowing logged-in users to update credentials from their profile view.
   - **Google OAuth 2.0 Authentication**: Implemented official Google Identity Services integration with server-side ID token verification via `https://oauth2.googleapis.com/tokeninfo`. Automatically maps Google profiles (`googleId`, `email`, `picture`) into isolated Revalgo accounts or links existing peers.
   - **Google Setup Assistant**: Integrated a zero-friction configuration modal on the frontend providing step-by-step guidance on setting up Google Cloud Console credentials and `VITE_GOOGLE_CLIENT_ID`.
   - **Comprehensive Auth Test Suite**: Authored `server/tests/auth.test.js` validating registration, credential verification, recovery key resets, change password workflows, and token security (14/14 server tests passing).
+
+- **Phase 20: AI Summary Markdown Formatting, Unicode Decoding & Escape Sanitization** (Current):
+  - **Root Cause Remediation for All-Caps Bloat**: Diagnosed LLM structured output escape issue where `withStructuredOutput` serialized line breaks as literal `\n` and emojis as `\uXXXX`. Because markdown requires real `\n` characters to break lines, ReactMarkdown parsed the entire 1,000+ character summary as a single `###` heading, turning all text uppercase via heading CSS.
+  - **Bidirectional Sanitization Engine**: Authored `cleanMarkdownNotes` in both `server/src/utils/cleanMarkdown.js` and `client/src/utils/cleanMarkdown.js`, automatically unescaping literal `\n`, `\r`, and multi-digit unicode sequences (`\u270e`, `\u1f6e0`, `\u{1f6e0}`) and stripping stray backslashes.
+  - **Rich Markdown Typography**: Enhanced `ReactMarkdown` component map in `client/src/App.jsx` with dedicated, readable styles for `ul`, `ol`, `li`, `strong`, `p`, and `h3`, removing forced heading capitalization.
+  - **Database Sanitization Migration**: Created and executed `scripts/sanitize_enhanced_notes.js` sanitizing all 16 affected questions in MongoDB Atlas and 13 in local MongoDB, restoring proper visual formatting across all user cards.
+
 
 ## Next Logical Steps
 1. 3D Knowledge Graph (`react-force-graph`) to visualize pattern dependencies.

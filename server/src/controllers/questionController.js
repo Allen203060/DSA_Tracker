@@ -1,5 +1,6 @@
 import Question from '../models/Question.js';
 import Pattern from '../models/Pattern.js';
+import { cleanMarkdownNotes } from '../utils/cleanMarkdown.js';
 
 // Helper to filter queries by active authenticated user
 const getUserFilter = (req) => (req.user ? { userId: req.user._id } : {});
@@ -29,7 +30,7 @@ export const addQuestion = async (req, res) => {
       title,
       url,
       notes,
-      enhancedNotes,
+      enhancedNotes: enhancedNotes ? cleanMarkdownNotes(enhancedNotes) : undefined,
       topic: topic || 'General',
       subtopic: subtopic || 'General',
       difficulty: ['Easy', 'Medium', 'Hard'].includes(difficulty) ? difficulty : 'Medium',
@@ -202,7 +203,7 @@ export const updateQuestion = async (req, res) => {
     if (title !== undefined) updateFields.title = title;
     if (url !== undefined) updateFields.url = url;
     if (notes !== undefined) updateFields.notes = notes;
-    if (enhancedNotes !== undefined) updateFields.enhancedNotes = enhancedNotes;
+    if (enhancedNotes !== undefined) updateFields.enhancedNotes = cleanMarkdownNotes(enhancedNotes);
     if (topic !== undefined) updateFields.topic = topic;
     if (subtopic !== undefined) updateFields.subtopic = subtopic;
     if (difficulty !== undefined && ['Easy', 'Medium', 'Hard'].includes(difficulty)) updateFields.difficulty = difficulty;

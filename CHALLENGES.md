@@ -247,3 +247,20 @@ Leveraged Node.js 20's native `fetch` API to verify the client's Google JWT toke
 Upon verification, the backend extracts `sub` (Google ID), `email`, `name`, and `picture`, and atomically checks for an existing user by either `googleId` or matching `email`. If none exists, it generates a clean username and creates a new isolated peer account; if an existing user logged in via Google for the first time, it securely links their `googleId` and avatar without overwriting existing question collections.
 **Key Takeaway (Interview Insight):**
 Modern identity providers (Google, Apple, Microsoft) issue cryptographically signed OpenID Connect (OIDC) ID tokens on the frontend. Rather than pulling in heavyweight OAuth client SDKs, backends running modern Node runtimes can verify credentials with zero additional dependencies using standard OIDC validation endpoints, drastically reducing attack surface and container image bloat.
+
+## Challenge 22: Escaped Backslash & Unicode Serialization Breakdown in LLM Structured Output
+**The Problem:**
+AI-generated question summaries in `enhancedNotes` were rendering on the frontend as a single unbroken, all-caps wall of text (`\U270E CORE INTUITION\N\NA BIPARTITE GRAPH IS A GRAPH IN WHICH ADJACENT NODES CAN HAVE DIFFERENT ITEMS...`). Headers, lists, and line breaks completely failed to format, and emojis displayed as raw uppercase unicode identifiers (`\U270E`, `\U1F6E0`).
+**Root Cause:**
+When LLMs (specifically Meta-Llama 3.3 70B via OpenRouter) output JSON via LangChain's `withStructuredOutput(z.object(...))`, certain models double-escape control characters (`\\n`, `\\u270e`). In JSON, this stores a literal two-character string `'\\n'` (`\` and `n`) rather than an actual line break character (`0x0A`).
+When ReactMarkdown receives a string starting with `### ` containing literal `\n`, it treats the entire document as a single line because there is no true newline character. Consequently:
+1. The markdown parser parsed the entire multi-paragraph document into a single `<h3>` AST element.
+2. The CSS for `h3` (`uppercase tracking-wider`) converted every character in the document to ALL CAPS.
+3. Subsequent headers (`### `) and lists (`- Step 1:`) were trapped as plain inline text inside that giant `<h3>`.
+**Solution:**
+1. Created `cleanMarkdownNotes` in both backend and frontend to unescape multi-digit unicode sequences (`\u{hex}`, `\uXXXX`, `\\uXXXX`) and convert literal `\n` to real newlines.
+2. Sanitized `enhancedNotes` in `aiController.js` and `questionController.js` before persistence and response.
+3. Enhanced the frontend `ReactMarkdown` component dictionary in `App.jsx`, removing `uppercase` from `h3` and adding explicit styling for `ul`, `ol`, `li`, `strong`, `p`, and `code`.
+4. Authored and executed `scripts/sanitize_enhanced_notes.js` to migrate and permanently clean all 16 affected questions in MongoDB Atlas and 13 in local MongoDB.
+**Key Takeaway (Interview Insight):**
+LLM structured output parsers often preserve literal JSON backslash escapes in nested string fields. If a downstream consumer expects raw multiline Markdown, unescaping must occur before passing the text into markdown AST parsers; otherwise, a single initial `#` will swallow the entire payload into a single header node and trigger cascading CSS inheritance bugs.

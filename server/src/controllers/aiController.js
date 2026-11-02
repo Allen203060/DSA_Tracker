@@ -1,5 +1,6 @@
 import { ChatOpenRouter } from "@langchain/openrouter";
 import { z } from "zod";
+import { cleanMarkdownNotes } from "../utils/cleanMarkdown.js";
 
 const DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct";
 
@@ -41,6 +42,7 @@ export const classifyPattern = async (req, res) => {
       CRITICAL ENHANCEMENT RULE (PROPER MARKDOWN STRUCTURE):
       - enhancedNotes MUST BE a refined, polished, and beautifully structured version of THE STUDENT'S EXPLICIT APPROACH formatted in clean Markdown.
       - DO NOT substitute or introduce a different solution/algorithm that the student did not write about.
+      - Use real newline characters. Do NOT output escaped literal '\\n' characters or literal '\\uXXXX' sequences.
       - Format enhancedNotes strictly using the following Markdown sections:
 
         ### 💡 Core Intuition
@@ -61,6 +63,9 @@ export const classifyPattern = async (req, res) => {
     `;
 
     const response = await llm.invoke([{ role: "user", content: prompt }]);
+    if (response && response.enhancedNotes) {
+      response.enhancedNotes = cleanMarkdownNotes(response.enhancedNotes);
+    }
     res.json(response);
   } catch (error) {
     console.error("classifyPattern Error:", error);
@@ -110,6 +115,9 @@ export const gradeRecall = async (req, res) => {
     `;
 
     const response = await llm.invoke([{ role: "user", content: prompt }]);
+    if (response && response.feedback) {
+      response.feedback = cleanMarkdownNotes(response.feedback);
+    }
     res.json(response);
   } catch (error) {
     console.error("gradeRecall Error:", error);

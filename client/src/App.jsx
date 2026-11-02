@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import ThreeBackground from './components/ThreeBackground';
+import { cleanMarkdownNotes } from './utils/cleanMarkdown';
 
 // Base API URL configuration for cloud deployment (e.g. DigitalOcean / Heroku) vs local proxy
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
@@ -1581,21 +1582,25 @@ function App() {
                             </div>
 
                             {isExpanded && (
-                              <div className="mt-2.5 p-3 rounded-xl bg-slate-200/30 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] text-xs text-slate-700 dark:text-slate-300 max-h-56 overflow-y-auto leading-relaxed">
+                              <div className="mt-2.5 p-3.5 rounded-xl bg-slate-200/30 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] text-xs text-slate-700 dark:text-slate-300 max-h-72 overflow-y-auto leading-relaxed">
                                 {noteViewMode[q._id] === 'raw' ? (
                                   <p className="whitespace-pre-wrap font-sans">{q.notes}</p>
                                 ) : (
                                   <ReactMarkdown
                                     components={{
-                                      h3: ({ node, ...props }) => <h3 className="text-xs font-bold text-indigo-600 dark:text-indigo-300 mt-2.5 mb-1 uppercase tracking-wider" {...props} />,
-                                      p: ({ node, ...props }) => <p className="mb-2 text-slate-700 dark:text-slate-300" {...props} />,
+                                      h3: ({ node, ...props }) => <h3 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-3 mb-1.5 flex items-center gap-1.5 tracking-wide first:mt-0" {...props} />,
+                                      p: ({ node, ...props }) => <p className="mb-2 text-slate-700 dark:text-slate-300 leading-relaxed text-xs" {...props} />,
+                                      ul: ({ node, ...props }) => <ul className="list-disc pl-5 space-y-1 my-2 text-slate-700 dark:text-slate-300 text-xs" {...props} />,
+                                      ol: ({ node, ...props }) => <ol className="list-decimal pl-5 space-y-1 my-2 text-slate-700 dark:text-slate-300 text-xs" {...props} />,
+                                      li: ({ node, ...props }) => <li className="text-xs leading-relaxed text-slate-700 dark:text-slate-300" {...props} />,
+                                      strong: ({ node, ...props }) => <strong className="font-semibold text-slate-900 dark:text-white" {...props} />,
                                       code: ({ node, inline, ...props }) => 
                                         inline 
-                                          ? <code className="bg-slate-200 dark:bg-base-900 px-1 py-0.5 rounded font-mono text-indigo-600 dark:text-cyan-300 text-[11px]" {...props} />
-                                          : <code className="block bg-[#0e121e] p-2 rounded-lg font-mono text-cyan-300 text-[11px] overflow-x-auto my-1.5" {...props} />
+                                          ? <code className="bg-slate-200/80 dark:bg-base-900 px-1 py-0.5 rounded font-mono text-indigo-600 dark:text-cyan-300 text-[11px]" {...props} />
+                                          : <code className="block bg-[#0e121e] p-2.5 rounded-lg font-mono text-cyan-300 text-[11px] overflow-x-auto my-2" {...props} />
                                     }}
                                   >
-                                    {q.enhancedNotes || q.notes}
+                                    {cleanMarkdownNotes(q.enhancedNotes || q.notes)}
                                   </ReactMarkdown>
                                 )}
                               </div>
@@ -2051,7 +2056,7 @@ function App() {
                 </div>
 
                 <div className="p-4 rounded-xl bg-slate-200/30 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] text-xs text-slate-700 dark:text-slate-200 font-sans leading-relaxed max-h-60 overflow-y-auto">
-                  <ReactMarkdown>{gradeResult.feedback}</ReactMarkdown>
+                  <ReactMarkdown>{cleanMarkdownNotes(gradeResult.feedback)}</ReactMarkdown>
                 </div>
 
                 <div className="flex justify-end pt-2">
