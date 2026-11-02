@@ -20,7 +20,7 @@ import {
   importProblemFromUrl, 
   searchProblems 
 } from '../controllers/importController.js';
-import { register, login, getMe, googleAuth, resetPassword, changePassword } from '../controllers/authController.js';
+import { register, login, getMe, googleAuth, resetPassword, changePassword, demoLogin, demoReset } from '../controllers/authController.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -33,6 +33,8 @@ router.get('/health', (req, res) => {
 // --- Authentication Endpoints ---
 router.post('/auth/register', register);
 router.post('/auth/login', login);
+router.post('/auth/demo', demoLogin);
+router.post('/auth/demo/reset', demoReset);
 router.post('/auth/google', googleAuth);
 router.post('/auth/reset-password', resetPassword);
 router.post('/auth/change-password', requireAuth, changePassword);

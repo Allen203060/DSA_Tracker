@@ -7,7 +7,8 @@ import {
   ChevronRight, Flame, Trophy, Activity, Code, Play, Copy, Check, 
   Plus, RotateCcw, Sparkles, CheckCircle, Edit3, Save, Sun, Moon,
   User as UserIcon, LogOut, Key, ShieldCheck, UserPlus, ArrowLeft, Lock, Info, HelpCircle,
-  Skull, AlertTriangle, Hourglass, Zap, Search, Wand2, Link2, CheckCheck, Download, Clock
+  Skull, AlertTriangle, Hourglass, Zap, Search, Wand2, Link2, CheckCheck, Download, Clock,
+  ArrowRight, GraduationCap, BookOpen
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import ThreeBackground from './components/ThreeBackground';
@@ -75,6 +76,13 @@ function App() {
   const [changePasswordError, setChangePasswordError] = useState('');
   const [changePasswordSuccess, setChangePasswordSuccess] = useState('');
   const [isServerWakingUp, setIsServerWakingUp] = useState(false);
+
+  // First-time Visitor Welcome & Interactive Guided Tour State
+  const [showVisitorModal, setShowVisitorModal] = useState(false);
+  const [showFeatureTourModal, setShowFeatureTourModal] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
+  const [demoActionLoading, setDemoActionLoading] = useState(false);
+  const [demoToast, setDemoToast] = useState('');
   
   // Theme State: 'dark' (softer dark) or 'light'
   const [theme, setTheme] = useState(() => {
@@ -361,10 +369,10 @@ function App() {
           localStorage.removeItem('revalgo_token');
           localStorage.removeItem('revalgo_user');
           setCurrentUser(null);
-          setIsAuthModalOpen(true);
+          setShowVisitorModal(true);
         });
     } else {
-      setIsAuthModalOpen(true);
+      setShowVisitorModal(true);
     }
 
     // Keep-alive heartbeat: ping backend every 10 minutes to prevent Render from going to sleep while tab is open
@@ -532,8 +540,118 @@ function App() {
     setAuthPassword('');
     setAuthRecoveryKey('');
     setAuthNewPassword('');
-    setIsAuthModalOpen(true);
+    setShowVisitorModal(true);
+    setIsAuthModalOpen(false);
   };
+
+  const handleLaunchDemo = async () => {
+    setDemoActionLoading(true);
+    setAuthError('');
+    try {
+      const res = await axios.post('/api/auth/demo');
+      const { user, token } = res.data;
+      localStorage.setItem('revalgo_token', token);
+      localStorage.setItem('revalgo_user', JSON.stringify(user));
+      setCurrentUser(user);
+      setShowVisitorModal(false);
+      setIsAuthModalOpen(false);
+      setTourStep(0);
+      setShowFeatureTourModal(true);
+    } catch (err) {
+      setAuthError(err.response?.data?.error || 'Failed to initialize demo account. Please try again.');
+    } finally {
+      setDemoActionLoading(false);
+    }
+  };
+
+  const handleResetDemoData = async () => {
+    setDemoActionLoading(true);
+    try {
+      await axios.post('/api/auth/demo/reset');
+      await fetchQuestions();
+      await fetchActivityStats();
+      setDemoToast('Demo showcase questions reset to pristine state!');
+      setTimeout(() => setDemoToast(''), 4000);
+    } catch (err) {
+      setDemoToast('Failed to reset demo data.');
+      setTimeout(() => setDemoToast(''), 4000);
+    } finally {
+      setDemoActionLoading(false);
+    }
+  };
+
+  const FEATURE_TOUR_STEPS = [
+    {
+      stepNumber: 1,
+      badge: 'Spatial Retention',
+      icon: Clock,
+      iconColor: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+      title: 'Active Spaced Repetition (SM-2)',
+      description: 'Cramming LeetCode problems 2 weeks before interviews leads to memory decay. Revalgo applies the SuperMemo SM-2 algorithm to compute the exact day you need to review a pattern right before it slips away.',
+      highlights: [
+        { label: 'Due Today Queue', text: 'Questions automatically surface in your "Revision" feed when due.' },
+        { label: 'Dynamic Intervals', text: 'Successful recalls push intervals from 1 day to 4 days, then weeks.' },
+        { label: 'Zero Cognitive Burden', text: 'You never have to guess what algorithm to revise next.' }
+      ],
+      proTip: 'Look at the "Revision" tab on your dashboard — "Two Sum" and "Daily Temperatures" are queued for review right now!'
+    },
+    {
+      stepNumber: 2,
+      badge: 'Conceptual Mastery',
+      icon: BrainCircuit,
+      iconColor: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
+      title: 'AI Study Buddy & Natural Recall Grading',
+      description: 'Never jump straight to reading solutions! When you click "Test Recall", write the algorithmic invariant and approach in plain English. Our AI grades your explanation (0-100) and points out edge cases you missed.',
+      highlights: [
+        { label: 'Active Retrieval', text: 'Explaining concepts in plain English builds 10x deeper mental models.' },
+        { label: 'Nuanced AI Feedback', text: 'Identifies missing edge cases, invariant slip-ups, and Big-O bottlenecks.' },
+        { label: 'Quality Score (1-5)', text: 'Your recall grade feeds directly into the SM-2 scheduling algorithm.' }
+      ],
+      proTip: 'Click "Test Recall" on any question card to test your conceptual recall before looking at code.'
+    },
+    {
+      stepNumber: 3,
+      badge: 'Live Code Sandbox',
+      icon: Code,
+      iconColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+      title: 'Split-Pane Playground & Complexity Evaluator',
+      description: 'Practice writing your solution directly in our developer-tuned editor. Test against custom inputs, verify outputs, and ask the AI Complexity Grader to verify your Time & Space Big-O limits.',
+      highlights: [
+        { label: 'Multi-Language Support', text: 'Seamless practice in C++, Python, Java, JavaScript, and Go.' },
+        { label: 'Custom Test Runner', text: 'Run edge cases like empty arrays, single elements, and large constraints.' },
+        { label: 'Big-O Evaluation', text: 'Get instant algorithmic verification of asymptotic runtime.' }
+      ],
+      proTip: 'Click "Code Space" on "Trapping Rain Water" to explore the two-pointer invariant and run sample test cases.'
+    },
+    {
+      stepNumber: 4,
+      badge: 'Accountability System',
+      icon: Flame,
+      iconColor: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+      title: 'Wall of Fame vs Wall of Shame',
+      description: 'Real mastery is born from consistency. Revalgo provides GitHub-style streak heatmaps, and a toggleable "Wall of Shame" that highlights overdue questions and days when revisions were neglected.',
+      highlights: [
+        { label: 'Revision Streaks', text: 'Keep your consecutive practice streak alive every day.' },
+        { label: 'Wall of Shame Flip', text: 'Toggle to Shame Mode to confront overdue learning debt.' },
+        { label: 'Daily Quota Tuning', text: 'Set your target to 2, 3, 5, or 10 revisions per day to prevent burnout.' }
+      ],
+      proTip: 'Click "Fame / Shame" in the activity section to toggle between your achievement streak and overdue backlog.'
+    },
+    {
+      stepNumber: 5,
+      badge: '1-Click Workflow',
+      icon: Zap,
+      iconColor: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
+      title: 'Revalgo Browser Companion Extension',
+      description: 'Log problems seamlessly as you solve them on LeetCode and GeeksforGeeks. The extension automatically detects problem titles, difficulty, topics, and even summarizes approaches using AI.',
+      highlights: [
+        { label: 'Edge & Chrome Ready', text: 'Install the companion in Microsoft Edge, Google Chrome, or Brave.' },
+        { label: 'Background Service Worker', text: 'Asynchronous logging ensures problem saves never fail if the popup closes.' },
+        { label: 'Recently Logged Feed', text: 'Freshly logged problems instantly populate your "Recently Logged" feed.' }
+      ],
+      proTip: 'Click the "Browser Companion" button in the top header to copy your extension token and download the zip bundle.'
+    }
+  ];
 
   const handleCopyToken = () => {
     const token = localStorage.getItem('revalgo_token');
@@ -552,6 +670,7 @@ function App() {
         if (viewingCodeQuestion) setViewingCodeQuestion(null);
         if (reviewingQuestion) closeReview();
         if (showExtensionModal) setShowExtensionModal(false);
+        if (showFeatureTourModal) setShowFeatureTourModal(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -1206,6 +1325,11 @@ function App() {
                 {currentUser.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U'}
               </div>
               <span className="max-w-[100px] truncate">{currentUser.displayName || currentUser.username}</span>
+              {(currentUser.username === 'demo' || currentUser.isDemo) && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-bold uppercase font-mono">
+                  Demo
+                </span>
+              )}
             </button>
           ) : (
             <button
@@ -1218,6 +1342,73 @@ function App() {
           )}
         </div>
       </header>
+
+      {/* --- DEMO MODE ACTIVE BANNER --- */}
+      {(currentUser?.username === 'demo' || currentUser?.isDemo) && (
+        <div className="mb-6 p-4 rounded-2xl glass-panel border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-emerald-500/10 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg shadow-amber-500/5 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30 shrink-0">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider font-mono">
+                  Interactive Guest Demo
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 font-semibold">
+                  Live Showcase
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                Exploring preloaded problems (Two Sum, Daily Temps, Trapping Rain Water). Test the AI recall, run code test cases, or take the guided tour!
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+            <button
+              onClick={() => { setTourStep(0); setShowFeatureTourModal(true); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-input text-xs font-semibold text-indigo-600 dark:text-indigo-300 hover:text-indigo-500 transition-all shadow-sm active:scale-95"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              Feature Tour
+            </button>
+
+            <button
+              onClick={handleResetDemoData}
+              disabled={demoActionLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-input text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-amber-500 transition-all shadow-sm active:scale-95"
+              title="Reset showcase questions to initial state"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${demoActionLoading ? 'animate-spin' : ''}`} />
+              Reset Data
+            </button>
+
+            <button
+              onClick={() => {
+                setAuthMode('register');
+                setAuthUsername('');
+                setAuthPassword('');
+                setAuthDisplayName('');
+                setAuthError('');
+                setIsAuthModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Create My Account
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Demo Notification Toast */}
+      {demoToast && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl glass-panel border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-semibold shadow-xl shadow-emerald-500/10 animate-fade-in backdrop-blur-md">
+          <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
+          <span>{demoToast}</span>
+        </div>
+      )}
 
       {/* --- PROGRESS & ACTIVITY DASHBOARD (WALL OF FAME / WALL OF SHAME) --- */}
       <section className="mb-6 glass-panel rounded-2xl p-5 sm:p-6 space-y-5">
@@ -3002,6 +3193,39 @@ function App() {
                         )}
                       </div>
                     </div>
+
+                    {/* 1-Click Guest Demo Exploration Button */}
+                    <div className="pt-3 border-t border-slate-200/60 dark:border-white/[0.06] mt-3">
+                      <button
+                        type="button"
+                        onClick={handleLaunchDemo}
+                        disabled={demoActionLoading}
+                        className="w-full py-2.5 px-4 rounded-xl border border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-emerald-500/10 hover:from-indigo-500/20 hover:via-purple-500/20 hover:to-emerald-500/20 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.99] group"
+                      >
+                        {demoActionLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                        ) : (
+                          <>
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500 group-hover:rotate-12 transition-transform" />
+                            <span>Explore Live Demo Account (Zero Setup)</span>
+                            <ArrowRight className="w-3.5 h-3.5 text-indigo-500 group-hover:translate-x-0.5 transition-transform" />
+                          </>
+                        )}
+                      </button>
+
+                      <div className="text-center pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAuthModalOpen(false);
+                            setShowVisitorModal(true);
+                          }}
+                          className="text-[11px] text-slate-500 hover:text-indigo-500 dark:text-slate-400 dark:hover:text-indigo-300 font-medium inline-flex items-center gap-1 transition-colors"
+                        >
+                          <BookOpen className="w-3 h-3" /> Platform Tour &amp; Feature Overview
+                        </button>
+                      </div>
+                    </div>
                   </form>
                 )}
               </div>
@@ -3183,6 +3407,252 @@ function App() {
                 Close Guide
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- 1ST-TIME VISITOR WELCOME MODAL --- */}
+      {showVisitorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in overflow-y-auto">
+          <div className="glass-panel w-full max-w-2xl rounded-2xl p-6 sm:p-8 shadow-2xl border border-indigo-500/30 dark:border-indigo-500/20 relative my-8">
+            {/* Brand Header */}
+            <div className="text-center space-y-3 mb-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-indigo-500/15 via-purple-500/15 to-emerald-500/15 border border-indigo-500/30 text-indigo-600 dark:text-indigo-300 text-xs font-mono font-semibold">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>Interactive Algorithmic Practice Workspace</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                Welcome to <span className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 bg-clip-text text-transparent">Revalgo</span>
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-lg mx-auto leading-relaxed">
+                Stop blindly grinding hundreds of problems. Revalgo combines <strong>active spaced repetition</strong>, <strong>AI conceptual recall</strong>, and a <strong>live code playground</strong> so you never blank on patterns in interviews.
+              </p>
+            </div>
+
+            {/* 4 Superpower Feature Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+              {/* Feature 1 */}
+              <div className="p-3.5 rounded-xl bg-slate-100/60 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06] hover:border-indigo-500/30 transition-all group">
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-500 dark:text-indigo-400 group-hover:scale-110 transition-transform">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">Spaced Repetition (SM-2)</h3>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Optimal review intervals scheduled algorithmically. Solve once, review at the point of forgetting, and retain patterns permanently.
+                </p>
+              </div>
+
+              {/* Feature 2 */}
+              <div className="p-3.5 rounded-xl bg-slate-100/60 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06] hover:border-purple-500/30 transition-all group">
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <div className="p-1.5 rounded-lg bg-purple-500/15 text-purple-500 dark:text-purple-400 group-hover:scale-110 transition-transform">
+                    <BrainCircuit className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">AI Natural Recall Grading</h3>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Test your conceptual grasp in natural English. AI evaluates your mental model and pinpoints gaps before you glance at solutions.
+                </p>
+              </div>
+
+              {/* Feature 3 */}
+              <div className="p-3.5 rounded-xl bg-slate-100/60 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06] hover:border-emerald-500/30 transition-all group">
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-500 dark:text-emerald-400 group-hover:scale-110 transition-transform">
+                    <Code className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">Code Space &amp; Test Cases</h3>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  In-browser code playground with C++, Python &amp; Java syntax, custom test case execution, and automated Big-O complexity analysis.
+                </p>
+              </div>
+
+              {/* Feature 4 */}
+              <div className="p-3.5 rounded-xl bg-slate-100/60 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06] hover:border-amber-500/30 transition-all group">
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <div className="p-1.5 rounded-lg bg-amber-500/15 text-amber-500 dark:text-amber-400 group-hover:scale-110 transition-transform">
+                    <Zap className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">Browser Companion</h3>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Capture problems and AI code summaries directly from LeetCode and GeeksforGeeks with our Edge/Chrome companion extension.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={handleLaunchDemo}
+                disabled={demoActionLoading}
+                className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:from-indigo-500 hover:via-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-indigo-600/25 flex items-center justify-center gap-2.5 transition-all transform hover:scale-[1.01] active:scale-[0.99]"
+              >
+                {demoActionLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-amber-300" />
+                    <span>Launch Live Demo Account (Zero Setup)</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center justify-between pt-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowVisitorModal(false);
+                    setAuthMode('login');
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="text-slate-500 hover:text-indigo-500 dark:text-slate-400 dark:hover:text-indigo-400 font-medium transition-colors"
+                >
+                  Already have an account? <span className="underline">Sign In</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowVisitorModal(false);
+                    setAuthMode('register');
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="text-slate-500 hover:text-indigo-500 dark:text-slate-400 dark:hover:text-indigo-400 font-medium transition-colors"
+                >
+                  Create New Peer Account &rarr;
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- 5-STEP GUIDED FEATURE TOUR MODAL --- */}
+      {showFeatureTourModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in overflow-y-auto">
+          <div className="glass-panel w-full max-w-xl rounded-2xl p-6 sm:p-7 shadow-2xl border border-indigo-500/30 dark:border-white/[0.08] relative my-8">
+            {/* Top Close Button */}
+            <button
+              onClick={() => setShowFeatureTourModal(false)}
+              className="absolute top-5 right-5 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-all"
+              title="Close Tour"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Stepper Content */}
+            {(() => {
+              const currentStep = FEATURE_TOUR_STEPS[tourStep] || FEATURE_TOUR_STEPS[0];
+              const StepIcon = currentStep.icon;
+
+              return (
+                <div className="space-y-5">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2.5 rounded-xl border ${currentStep.iconColor} shadow-sm shrink-0`}>
+                      <StepIcon className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/25 font-mono">
+                          Step {tourStep + 1} of {FEATURE_TOUR_STEPS.length} &bull; {currentStep.badge}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1">
+                        {currentStep.title}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    {currentStep.description}
+                  </p>
+
+                  {/* Highlight Points */}
+                  <div className="space-y-2 p-3.5 rounded-xl bg-slate-100/70 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.05]">
+                    {currentStep.highlights.map((h, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-xs">
+                        <CheckCheck className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
+                        <div>
+                          <strong className="text-slate-800 dark:text-slate-200">{h.label}:</strong>{' '}
+                          <span className="text-slate-600 dark:text-slate-400">{h.text}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Pro Tip Box */}
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 leading-relaxed flex items-start gap-2.5">
+                    <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-amber-800 dark:text-amber-200">Interactive Action:</span>{' '}
+                      <span>{currentStep.proTip}</span>
+                    </div>
+                  </div>
+
+                  {/* Stepper Navigation Footer */}
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-200/60 dark:border-white/[0.06]">
+                    {/* Stepper Progress Dots */}
+                    <div className="flex items-center gap-1.5">
+                      {FEATURE_TOUR_STEPS.map((_, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setTourStep(idx)}
+                          className={`h-2 rounded-full transition-all ${idx === tourStep ? 'bg-indigo-500 w-6' : 'bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 w-2'}`}
+                          title={`Go to step ${idx + 1}`}
+                        />
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowFeatureTourModal(false)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors"
+                      >
+                        Skip Tour
+                      </button>
+
+                      {tourStep > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setTourStep(prev => Math.max(0, prev - 1))}
+                          className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/[0.1] hover:bg-slate-100 dark:hover:bg-white/[0.06] text-xs font-semibold text-slate-700 dark:text-slate-200 transition-all flex items-center gap-1"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" /> Previous
+                        </button>
+                      )}
+
+                      {tourStep < FEATURE_TOUR_STEPS.length - 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => setTourStep(prev => Math.min(FEATURE_TOUR_STEPS.length - 1, prev + 1))}
+                          className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-all shadow-md shadow-indigo-600/20 flex items-center gap-1.5"
+                        >
+                          <span>Next</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setShowFeatureTourModal(false)}
+                          className="px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white rounded-lg text-xs font-bold transition-all shadow-md shadow-emerald-600/20 flex items-center gap-1.5"
+                        >
+                          <span>Start Practicing</span>
+                          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

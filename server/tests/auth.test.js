@@ -126,4 +126,37 @@ describe('Auth API Endpoints (Login, Reset, Change, Google)', () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toContain('Google credential token is required');
   });
+
+  it('should allow 1-click guest demo login with seeded showcase questions', async () => {
+    const res = await request(app)
+      .post('/api/auth/demo');
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.username).toBe('demo');
+    expect(res.body.user.displayName).toBe('Demo Explorer');
+    expect(res.body.user.isDemo).toBe(true);
+    expect(res.body.token).toBeDefined();
+
+    // Verify demo questions are accessible using the demo token
+    const questionsRes = await request(app)
+      .get('/api/questions')
+      .set('Authorization', `Bearer ${res.body.token}`);
+
+    expect(questionsRes.status).toBe(200);
+    expect(questionsRes.body.length).toBeGreaterThanOrEqual(4);
+    const titles = questionsRes.body.map(q => q.title);
+    expect(titles).toContain('Two Sum');
+    expect(titles).toContain('Daily Temperatures');
+    expect(titles).toContain('Trapping Rain Water');
+    expect(titles).toContain('Sliding Window Maximum');
+  });
+
+  it('should reset demo showcase questions back to pristine state', async () => {
+    const resetRes = await request(app)
+      .post('/api/auth/demo/reset');
+
+    expect(resetRes.status).toBe(200);
+    expect(resetRes.body.message).toContain('reset');
+  });
 });
+

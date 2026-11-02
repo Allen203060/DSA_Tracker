@@ -1,5 +1,7 @@
 import User from '../models/User.js';
+import Question from '../models/Question.js';
 import { generateToken } from '../middleware/auth.js';
+import { bootstrapDemoAccount, seedDemoQuestions } from '../utils/bootstrapUser.js';
 
 export const register = async (req, res) => {
   try {
@@ -241,6 +243,65 @@ export const changePassword = async (req, res) => {
     await user.save();
 
     res.json({ message: 'Password updated successfully!' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// --- Guest Demo Login Handler ---
+export const demoLogin = async (req, res) => {
+  try {
+    let demoUser = await User.findOne({ username: 'demo' });
+    if (!demoUser) {
+      demoUser = await bootstrapDemoAccount();
+    }
+
+    if (!demoUser) {
+      return res.status(500).json({ error: 'Failed to initialize demo account.' });
+    }
+
+    // Ensure showcase questions exist
+    const questionCount = await Question.countDocuments({ userId: demoUser._id });
+    if (questionCount === 0) {
+      await seedDemoQuestions(demoUser._id);
+    }
+
+    const token = generateToken(demoUser);
+
+    res.json({
+      user: {
+        id: demoUser._id,
+        username: demoUser.username,
+        displayName: demoUser.displayName,
+        email: demoUser.email || 'demo@revalgo.dev',
+        avatar: demoUser.avatar || '',
+        isDemo: true,
+        createdAt: demoUser.createdAt
+      },
+      token
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// --- Reset Demo Showcase Questions Handler ---
+export const demoReset = async (req, res) => {
+  try {
+    let demoUser = await User.findOne({ username: 'demo' });
+    if (!demoUser) {
+      demoUser = await bootstrapDemoAccount();
+    }
+
+    if (!demoUser) {
+      return res.status(500).json({ error: 'Failed to initialize demo account.' });
+    }
+
+    // Clear existing questions for demo user and re-seed
+    await Question.deleteMany({ userId: demoUser._id });
+    await seedDemoQuestions(demoUser._id);
+
+    res.json({ message: 'Demo showcase questions have been reset to pristine initial state!' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

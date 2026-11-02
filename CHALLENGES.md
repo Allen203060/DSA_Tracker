@@ -348,6 +348,29 @@ When clicking `[ ✨ Auto-Fill from Code ]` in the Revalgo Browser Companion ext
 **Key Takeaway (Interview Insight):**
 When shipping client-side browser extensions for full-stack applications with dual deployment modes (local dev and cloud hosting), never hardcode remote server origins or treat DOM scraping as an unrecoverable single point of failure. Provide editable fallback inputs for manual user override, self-healing storage migrations, zero-click active tab token detection, and rich diagnostic error states to ensure seamless developer and user workflows.
 
+## Challenge 29: First-Time Visitor Onboarding Friction & Zero-Authentication Interactive Exploration
+**The Problem:**
+When first-time visitors arrived at the Revalgo web application, the client unconditionally blocked access with an unauthenticated login/register modal (`isAuthModalOpen(true)` with no close button). Visitors who had not yet created an account were unable to preview the interface, understand the SuperMemo SM-2 spaced repetition loop, or see what problem cards look like before surrendering personal credentials.
+
+**Root Cause:**
+1. **Hard Auth Gate**: `App.jsx` checked `localStorage.getItem('revalgo_token')` on initial mount. If absent, it forced the authentication modal without offering any sandbox or preview state.
+2. **Cold-Start Data Emptiness**: Even if a visitor registered a new blank account, an empty database presented zero due questions, zero review history, and an empty heatmap, failing to demonstrate the core value proposition of AI concept recall grading and split-screen code execution.
+3. **Account Provisioning Barrier**: Requiring email/password credentials up front introduces high drop-off friction for algorithmic developer tools where users want to test the interactive experience first.
+
+**Solution:**
+1. **Interactive Visitor Welcome Experience (`showVisitorModal`)**: Replaced the blocking login modal on initial visit with an aesthetic, non-blocking Welcome Modal showcasing Revalgo's 4 core superpowers (Spaced Repetition SM-2, AI Natural Recall, Split-Pane Code Sandbox, Browser Companion) and dual actions (`[ 🚀 Launch Live Demo Account (Zero Setup) ]` vs `[ Sign In / Register ]`).
+2. **Pedagogical Showcase Seeding (`seedDemoQuestions`)**: Programmed `server/src/utils/bootstrapUser.js` to seed 4 curated, distinct algorithmic problems for the `@demo` user:
+   - *Two Sum* (Easy, Due Today for SM-2 recall testing)
+   - *Daily Temperatures* (Medium, Due Today with monotonic decreasing stack pedagogical notes)
+   - *Trapping Rain Water* (Hard, Due in 4 days showing space-optimized two-pointer invariants and Monaco test cases)
+   - *Sliding Window Maximum* (Hard, logged 25m ago to populate the top of the "Recently Logged" feed)
+3. **Guest Demo Authentication Protocol**: Created `POST /api/auth/demo` and `POST /api/auth/demo/reset` in `authController.js`, generating authenticated JWT sessions for guest explorers without password entry and providing 1-click showcase data resets.
+4. **5-Step Interactive Guided Feature Tour (`showFeatureTourModal`)**: Built a multi-step walkthrough modal with progress dots, pedagogical pro-tips, and next/prev controls explaining spaced repetition, AI recall evaluation, code playground test runners, the Wall of Shame, and the Browser Companion.
+5. **Floating Demo Status Banner**: Docked an obsidian-amber status banner below the header in demo mode providing 1-click triggers to reopen the Feature Tour, reset showcase data, or create a permanent personal account.
+
+**Key Takeaway (Interview Insight):**
+The fastest path to developer tool adoption is lowering Time-to-Value (TTV) to near-zero. Gating an interactive application behind mandatory registration hides its core value behind cognitive friction. By provisioning an authenticated ephemeral/guest demo account preloaded with high-quality, pedagogical data and an interactive guided tour, users experience the aha-moment before deciding to register.
+
 
 
 
