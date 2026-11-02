@@ -546,9 +546,7 @@ function App() {
   };
 
   const getCompanionServerUrl = () => {
-    return window.location.origin.includes('localhost')
-      ? 'http://localhost:5000'
-      : window.location.origin;
+    return 'https://revalgo-api.onrender.com';
   };
 
   const handleCopyServerUrl = () => {

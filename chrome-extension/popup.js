@@ -5,8 +5,9 @@ let capturedLanguage = 'cpp';
 let capturedDifficulty = 'Medium';
 let capturedTestCases = [];
 
+const PRODUCTION_SERVER_URL = 'https://revalgo-api.onrender.com';
 const LOCALHOST_SERVER_URL = 'http://localhost:5000';
-const DEFAULT_SERVER_URL = LOCALHOST_SERVER_URL;
+const DEFAULT_SERVER_URL = PRODUCTION_SERVER_URL;
 
 function detectCodeLanguage(code) {
   if (!code) return 'cpp';
@@ -24,8 +25,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const serverUrlInput = document.getElementById('serverUrlInput');
   const tokenInput = document.getElementById('tokenInput');
   const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+  const setCloudBtn = document.getElementById('setCloudBtn');
   const setLocalhostBtn = document.getElementById('setLocalhostBtn');
-  const setCustomBtn = document.getElementById('setCustomBtn');
 
   const titleInput = document.getElementById('titleInput');
   const urlInput = document.getElementById('urlInput');
@@ -49,29 +50,35 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function updatePresetButtons(activeUrl) {
-    if (activeUrl && activeUrl.includes('localhost')) {
-      if (setLocalhostBtn) setLocalhostBtn.classList.add('active');
-      if (setCustomBtn) setCustomBtn.classList.remove('active');
-    } else {
+    if (activeUrl && activeUrl.includes('revalgo-api.onrender.com')) {
+      if (setCloudBtn) setCloudBtn.classList.add('active');
       if (setLocalhostBtn) setLocalhostBtn.classList.remove('active');
-      if (setCustomBtn) setCustomBtn.classList.add('active');
+    } else if (activeUrl && activeUrl.includes('localhost')) {
+      if (setLocalhostBtn) setLocalhostBtn.classList.add('active');
+      if (setCloudBtn) setCloudBtn.classList.remove('active');
+    } else {
+      if (setCloudBtn) setCloudBtn.classList.remove('active');
+      if (setLocalhostBtn) setLocalhostBtn.classList.remove('active');
     }
   }
 
-  // Load saved settings with auto-healing of stale remote placeholder
+  // Load saved settings with auto-migration to official production API
   const config = await chrome.storage.local.get(['revalgo_server_url', 'revalgo_token']);
   let serverUrl = config.revalgo_server_url;
   let token = config.revalgo_token || '';
 
-  if (!serverUrl || serverUrl === 'https://dsa-tracker.onrender.com' || serverUrl.trim() === '') {
-    serverUrl = LOCALHOST_SERVER_URL;
-    await chrome.storage.local.set({ revalgo_server_url: LOCALHOST_SERVER_URL });
+  // Auto-migrate if empty, if pointing to obsolete placeholder, or if unconfigured
+  if (!serverUrl || serverUrl.includes('dsa-tracker.onrender.com') || serverUrl.trim() === '') {
+    serverUrl = PRODUCTION_SERVER_URL;
+    await chrome.storage.local.set({ revalgo_server_url: PRODUCTION_SERVER_URL });
   }
 
-  // Auto-detect Token from open Revalgo local tabs if token is missing
+  // Auto-detect Token from open Revalgo tabs if token is missing
   if (!token) {
     try {
-      const candidateTabs = await chrome.tabs.query({ url: ['*://localhost:*/*', '*://127.0.0.1:*/*'] });
+      const candidateTabs = await chrome.tabs.query({
+        url: ['*://revalgo-api.onrender.com/*', '*://*.onrender.com/*', '*://localhost:*/*', '*://127.0.0.1:*/*']
+      });
       for (const t of candidateTabs) {
         if (t.id) {
           const injection = await chrome.scripting.executeScript({
@@ -101,20 +108,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     settingsPanel.classList.toggle('hidden');
   });
 
+  if (setCloudBtn) {
+    setCloudBtn.addEventListener('click', () => {
+      serverUrlInput.value = PRODUCTION_SERVER_URL;
+      updatePresetButtons(PRODUCTION_SERVER_URL);
+    });
+  }
+
   if (setLocalhostBtn) {
     setLocalhostBtn.addEventListener('click', () => {
       serverUrlInput.value = LOCALHOST_SERVER_URL;
       updatePresetButtons(LOCALHOST_SERVER_URL);
-    });
-  }
-
-  if (setCustomBtn) {
-    setCustomBtn.addEventListener('click', () => {
-      if (serverUrlInput.value.includes('localhost')) {
-        serverUrlInput.value = '';
-      }
-      serverUrlInput.focus();
-      updatePresetButtons(serverUrlInput.value);
     });
   }
 
@@ -123,7 +127,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   saveSettingsBtn.addEventListener('click', async () => {
-    const newUrl = serverUrlInput.value.trim().replace(/\/$/, '') || LOCALHOST_SERVER_URL;
+    const newUrl = serverUrlInput.value.trim().replace(/\/$/, '') || PRODUCTION_SERVER_URL;
     const newToken = tokenInput.value.trim();
 
     await chrome.storage.local.set({
@@ -132,7 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     settingsPanel.classList.add('hidden');
-    showStatus('Connection settings saved successfully!');
+    showStatus(`Connection saved: ${newUrl}`);
     setTimeout(hideStatus, 3000);
   });
 
@@ -243,7 +247,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // AI Auto-Fill Notes from Code
   aiNotesBtn.addEventListener('click', async () => {
     const cfg = await chrome.storage.local.get(['revalgo_server_url', 'revalgo_token']);
-    const baseUrl = cfg.revalgo_server_url || LOCALHOST_SERVER_URL;
+    const baseUrl = cfg.revalgo_server_url || PRODUCTION_SERVER_URL;
     const authToken = cfg.revalgo_token;
 
     if (!authToken) {
@@ -303,7 +307,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       let message = err.message || 'Connection failed';
       if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
-        message = `Cannot connect to ${baseUrl}. If running locally, open ⚙ Config, select [Localhost 5000], and click Save.`;
+        message = `Cannot connect to ${baseUrl}. Check ⚙ Config and verify the server is running.`;
         settingsPanel.classList.remove('hidden');
       }
       showStatus(`AI Summary Error: ${message}`, true);
@@ -316,7 +320,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Submit to Revalgo
   submitBtn.addEventListener('click', async () => {
     const cfg = await chrome.storage.local.get(['revalgo_server_url', 'revalgo_token']);
-    const baseUrl = cfg.revalgo_server_url || LOCALHOST_SERVER_URL;
+    const baseUrl = cfg.revalgo_server_url || PRODUCTION_SERVER_URL;
     const authToken = cfg.revalgo_token;
 
     if (!authToken) {
@@ -415,7 +419,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       let message = err.message || 'Connection failed';
       if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
-        message = `Cannot connect to ${baseUrl}. If running locally, open ⚙ Config, select [Localhost 5000], and click Save.`;
+        message = `Cannot connect to ${baseUrl}. Verify your server is reachable.`;
         settingsPanel.classList.remove('hidden');
       }
       showStatus(`Save Error: ${message}`, true);
