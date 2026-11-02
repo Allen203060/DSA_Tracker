@@ -167,12 +167,13 @@ export const reviewQuestion = async (req, res) => {
   }
 };
 
-// GET ALL Questions (To see the future schedule)
+// GET ALL Questions (To see the future schedule or sort by recently logged)
 export const getAllQuestions = async (req, res) => {
   try {
+    const sortField = req.query.sort === 'recent' ? { createdAt: -1 } : { nextReviewDate: 1 };
     const questions = await Question.find(getUserFilter(req))
       .populate('patterns')
-      .sort({ nextReviewDate: 1 }); // Sort by closest review date first
+      .sort(sortField); // Sort by recent creation or closest review date first
     res.json(questions);
   } catch (error) {
     res.status(500).json({ error: error.message });

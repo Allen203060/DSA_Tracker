@@ -314,8 +314,21 @@ When opening the Revalgo Companion extension on a GeeksforGeeks problem page, th
 2. **Programmatic Script Injection on Failure**: If `chrome.tabs.sendMessage` returns an error due to an un-injected pre-existing tab, `popup.js` catches the error and executes `chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] })` on the fly, immediately retrying the message handshake.
 3. **Multi-Tiered GFG Extraction**: In `content.js`, extracted `problem_name` directly from the DOM script tag `#`__NEXT_DATA__` (immune to CSS class changes), augmented with OpenGraph meta tags, modern header selectors, and trailing numeric ID stripping (`-1587115620`) on URL slugs.
 4. **Broadened Manifest Permissions**: Updated match patterns to `*://*.geeksforgeeks.org/*` and `*://geeksforgeeks.org/*`.
+## Challenge 27: Multi-Dimensional Feed View Switching & Zero-Latency Reactive Sorting
+**The Problem:**
+Users reviewing their preparation workflow needed a clear, chronological view of their most recently logged questions (especially right after solving or clipping problems from LeetCode and GeeksforGeeks) alongside their daily spaced repetition queue.
+**Root Cause:**
+1. Revalgo previously supported only binary view switching: `due` (filtered by `nextReviewDate <= today` and daily revision limits) and `all` (sorted by closest future revision date).
+2. Sorting `all` by `nextReviewDate` scattered newly logged questions throughout the list, making it hard for students to confirm their recent submissions.
+3. Triggering a fresh network request on every view mode change added 150-400ms latency, causing visual stutter and layout shifts.
+**Solution:**
+1. **Ternary View Architecture**: Extended `viewMode` to support `'due' | 'recent' | 'all'`, with a responsive 3-tab toggle (`Revision`, `Recently Logged`, and `All Questions`).
+2. **Zero-Latency In-Memory Derivation**: Derived `targetQuestions` reactively on the client from pre-loaded data: when in `recent` mode, sorted by `new Date(b.createdAt) - new Date(a.createdAt)` in 0ms, while preserving active topic and subtopic filters.
+3. **API-Level Parity**: Updated `getAllQuestions` controller to accept `?sort=recent`, performing MongoDB database-level `{ createdAt: -1 }` sorting for external or deep-linked queries.
+4. **Relative Time Formatting**: Introduced a lightweight `formatTimeAgo` utility rendering clean relative badges (`Just now`, `5m ago`, `2h ago`, `Yesterday`) next to the difficulty tag on each problem card.
 **Key Takeaway (Interview Insight):**
-Content scripts should never be assumed to exist on active tabs at runtime. Extension popups must adopt a defense-in-depth architecture: 1) parse top-level tab metadata instantly, 2) attempt declarative messaging, and 3) dynamically inject the content script via `chrome.scripting.executeScript` when connecting to pre-existing tabs.
+When designing data-dense dashboards, never couple view transformations to network roundtrips if the required dataset is already loaded in memory. Deriving different projections (sorted, grouped, or filtered) reactively on the client yields instantaneous (0ms) UX while keeping the backend controller available for paginated or direct API consumers.
+
 
 
 

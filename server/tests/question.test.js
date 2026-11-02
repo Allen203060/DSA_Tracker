@@ -65,6 +65,20 @@ describe('Question API Endpoints & Multi-User Authentication', () => {
     expect(res.body.length).toBe(2);
   });
 
+  it('should get questions sorted by recently logged (?sort=recent)', async () => {
+    await Question.create({ title: 'Older Problem', notes: 'Old', userId: testUser.id, createdAt: new Date(Date.now() - 10000) });
+    await Question.create({ title: 'Newer Problem', notes: 'New', userId: testUser.id, createdAt: new Date(Date.now()) });
+
+    const res = await request(app)
+      .get('/api/questions?sort=recent')
+      .set('Authorization', `Bearer ${authToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.length).toBe(2);
+    expect(res.body[0].title).toBe('Newer Problem');
+    expect(res.body[1].title).toBe('Older Problem');
+  });
+
   it('should isolate questions between different users (User A cannot see User B questions)', async () => {
     // User A (testUser) question
     await Question.create({ title: "Allen's Secret Question", notes: 'Notes', userId: testUser.id });

@@ -30,6 +30,8 @@ describe('App Component', () => {
     await waitFor(() => {
       expect(screen.getByText(/Data Structures & Algorithms/i)).toBeInTheDocument();
       expect(screen.getAllByText(/Log Question/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByRole('button', { name: /Revision/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Recently Logged/i })).toBeInTheDocument();
     });
   });
 });

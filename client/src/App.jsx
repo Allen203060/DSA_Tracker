@@ -7,7 +7,7 @@ import {
   ChevronRight, Flame, Trophy, Activity, Code, Play, Copy, Check, 
   Plus, RotateCcw, Sparkles, CheckCircle, Edit3, Save, Sun, Moon,
   User as UserIcon, LogOut, Key, ShieldCheck, UserPlus, ArrowLeft, Lock, Info, HelpCircle,
-  Skull, AlertTriangle, Hourglass, Zap, Search, Wand2, Link2, CheckCheck, Download
+  Skull, AlertTriangle, Hourglass, Zap, Search, Wand2, Link2, CheckCheck, Download, Clock
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import ThreeBackground from './components/ThreeBackground';
@@ -26,9 +26,26 @@ axios.interceptors.request.use((config) => {
   return config;
 });
 
+const formatTimeAgo = (dateStr) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffSec = Math.floor((now - date) / 1000);
+  if (diffSec < 60) return 'Just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDays = Math.floor(diffHr / 24);
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+};
+
 function App() {
   const [questions, setQuestions] = useState([]);
   const [allQuestions, setAllQuestions] = useState([]);
+  const [dueQuestions, setDueQuestions] = useState([]);
   
   // Multi-User Authentication State
   const [currentUser, setCurrentUser] = useState(() => {
@@ -291,7 +308,15 @@ function App() {
       const dueRes = await axios.get(`/api/questions/due?limit=${dailyRevisionLimit}`);
       const allRes = await axios.get('/api/questions');
       setAllQuestions(allRes.data);
-      setQuestions(viewMode === 'due' ? dueRes.data : allRes.data);
+      setDueQuestions(dueRes.data);
+      if (viewMode === 'due') {
+        setQuestions(dueRes.data);
+      } else if (viewMode === 'recent') {
+        const recentSorted = [...allRes.data].sort((a, b) => new Date(b.createdAt || b._id) - new Date(a.createdAt || a._id));
+        setQuestions(recentSorted);
+      } else {
+        setQuestions(allRes.data);
+      }
     } catch (error) {
       if (error.response?.status === 401) {
         setIsAuthModalOpen(true);
@@ -361,6 +386,7 @@ function App() {
     } else {
       setQuestions([]);
       setAllQuestions([]);
+      setDueQuestions([]);
       setActivityData(INITIAL_ACTIVITY_DATA);
     }
   }, [currentUser, viewMode, dailyRevisionLimit]);
@@ -724,8 +750,12 @@ function App() {
     setExpandedTopics(prev => ({ ...prev, [topicName]: !prev[topicName] }));
   };
 
-  // Filter displayed questions based on selected topic / subtopic
-  const targetQuestions = questions;
+  // Filter displayed questions based on selected topic / subtopic & active viewMode
+  const targetQuestions = viewMode === 'due'
+    ? (dueQuestions.length > 0 || questions.length > 0 ? (dueQuestions.length > 0 ? dueQuestions : questions) : [])
+    : viewMode === 'recent'
+    ? [...allQuestions].sort((a, b) => new Date(b.createdAt || b._id) - new Date(a.createdAt || a._id))
+    : allQuestions;
 
   const displayedQuestions = targetQuestions.filter(q => {
     const tax = getTaxonomy(q);
@@ -1928,7 +1958,13 @@ function App() {
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <span>{viewMode === 'due' ? 'Due for Review Today' : 'All Solved Problems'}</span>
+                  <span>
+                    {viewMode === 'due' 
+                      ? 'Due for Review Today' 
+                      : viewMode === 'recent'
+                      ? 'Recently Logged Questions'
+                      : 'All Solved Problems'}
+                  </span>
                   <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
                     {displayedQuestions.length}
                   </span>
@@ -1944,23 +1980,39 @@ function App() {
               <div className="flex items-center gap-1.5 glass-panel p-1 rounded-xl">
                 <button
                   onClick={() => setViewMode('due')}
-                  className={`text-xs px-3.5 py-1.5 rounded-lg font-medium transition-all ${
+                  className={`text-xs px-3.5 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
                     viewMode === 'due' 
                       ? 'bg-indigo-600 text-white shadow-sm' 
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
+                  title="Questions scheduled for repetition today"
                 >
-                  Due Today ({questions.length})
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Revision ({dueQuestions.length || questions.length})</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('recent')}
+                  className={`text-xs px-3.5 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
+                    viewMode === 'recent' 
+                      ? 'bg-indigo-600 text-white shadow-sm' 
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                  title="Questions ordered by newly logged first"
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Recently Logged ({allQuestions.length})</span>
                 </button>
                 <button
                   onClick={() => setViewMode('all')}
-                  className={`text-xs px-3.5 py-1.5 rounded-lg font-medium transition-all ${
+                  className={`text-xs px-3.5 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
                     viewMode === 'all' 
                       ? 'bg-indigo-600 text-white shadow-sm' 
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
+                  title="All solved questions across all topics"
                 >
-                  All ({allQuestions.length})
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>All ({allQuestions.length})</span>
                 </button>
               </div>
             </div>
@@ -1972,10 +2024,18 @@ function App() {
                   <Trophy className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-slate-900 dark:text-white">All Caught Up for Today!</h4>
+                  <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                    {viewMode === 'due' 
+                      ? 'All Caught Up for Today!' 
+                      : viewMode === 'recent'
+                      ? 'No Questions Logged Yet'
+                      : 'No Problems Found'}
+                  </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
                     {viewMode === 'due' 
                       ? "You've mastered all problems in your daily revision queue. Solid consistency!" 
+                      : viewMode === 'recent'
+                      ? "You haven't logged any questions yet. Use the Smart Importer or Browser Companion above to log your first question!"
                       : "No problems found matching this filter criteria."}
                   </p>
                 </div>
@@ -2008,6 +2068,15 @@ function App() {
                             {tax.topic} • {tax.subtopic}
                           </span>
                           <div className="flex items-center gap-2">
+                            {q.createdAt && (
+                              <span 
+                                className="text-[10px] text-slate-400 dark:text-slate-500 font-mono flex items-center gap-1"
+                                title={`Logged on ${new Date(q.createdAt).toLocaleString()}`}
+                              >
+                                <Clock className="w-3 h-3 text-slate-400" />
+                                <span>{formatTimeAgo(q.createdAt)}</span>
+                              </span>
+                            )}
                             {renderDifficultyBadge(q.difficulty || 'Medium')}
                             {isDueNow && (
                               <span className="w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse" title="Due today" />
