@@ -7,11 +7,12 @@ import {
   ChevronRight, Flame, Trophy, Activity, Code, Play, Copy, Check, 
   Plus, RotateCcw, Sparkles, CheckCircle, Edit3, Save, Sun, Moon,
   User as UserIcon, LogOut, Key, ShieldCheck, UserPlus, ArrowLeft, Lock, Info, HelpCircle,
-  Skull, AlertTriangle, Hourglass
+  Skull, AlertTriangle, Hourglass, Zap, Search, Wand2, Link2, CheckCheck
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import ThreeBackground from './components/ThreeBackground';
 import { cleanMarkdownNotes } from './utils/cleanMarkdown';
+import { detectCodeLanguage } from './utils/codeDetector';
 
 // Base API URL configuration for cloud deployment (e.g. DigitalOcean / Heroku) vs local proxy
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
@@ -93,6 +94,17 @@ function App() {
   const [testCases, setTestCases] = useState([{ input: '', expectedOutput: '' }]);
   const [showCodeSection, setShowCodeSection] = useState(false);
   const [isClassifying, setIsClassifying] = useState(false);
+
+  // Smart Importer & Omnibox State
+  const [smartInput, setSmartInput] = useState('');
+  const [isImportingUrl, setIsImportingUrl] = useState(false);
+  const [importSuccess, setImportSuccess] = useState('');
+  const [importError, setImportError] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [detectedLangBadge, setDetectedLangBadge] = useState(null);
+  const [isSummarizingCode, setIsSummarizingCode] = useState(false);
 
   // Question Notes State
   const [expandedNotesId, setExpandedNotesId] = useState(null);
@@ -726,6 +738,110 @@ function App() {
     setter(prev => prev.map((tc, i) => i === index ? { ...tc, [field]: value } : tc));
   };
 
+  // --- Smart Importer & Problem Search Handlers ---
+  const handleImportFromUrl = async (targetUrl) => {
+    const urlToFetch = (targetUrl || smartInput).trim();
+    if (!urlToFetch) return;
+
+    setIsImportingUrl(true);
+    setImportError('');
+    setImportSuccess('');
+    setShowSearchDropdown(false);
+
+    try {
+      const res = await axios.post('/api/import/url', { url: urlToFetch });
+      const { title: fetchedTitle, url: canonicalUrl, difficulty: fetchedDifficulty, testCases: fetchedTestCases } = res.data;
+
+      if (fetchedTitle) setTitle(fetchedTitle);
+      if (canonicalUrl) setUrl(canonicalUrl);
+      if (fetchedDifficulty && ['Easy', 'Medium', 'Hard'].includes(fetchedDifficulty)) {
+        setDifficulty(fetchedDifficulty);
+      }
+      if (Array.isArray(fetchedTestCases) && fetchedTestCases.length > 0) {
+        setTestCases(fetchedTestCases);
+      }
+      setShowCodeSection(true);
+      setImportSuccess(`Imported: ${fetchedTitle}`);
+      setSmartInput('');
+      setTimeout(() => setImportSuccess(''), 4000);
+    } catch (err) {
+      console.error('Import Error:', err);
+      const msg = err.response?.data?.error || err.message;
+      setImportError(msg);
+      setTimeout(() => setImportError(''), 5000);
+    } finally {
+      setIsImportingUrl(false);
+    }
+  };
+
+  const handleSearchInputChange = (val) => {
+    setSmartInput(val);
+    setImportError('');
+    setImportSuccess('');
+
+    // If user pasted a full URL, do not query autocomplete search
+    if (val.includes('http') || val.includes('leetcode.com') || val.includes('geeksforgeeks.org')) {
+      setShowSearchDropdown(false);
+      return;
+    }
+
+    if (val.trim().length >= 2) {
+      setIsSearching(true);
+      axios.get(`/api/import/search?query=${encodeURIComponent(val.trim())}`)
+        .then(res => {
+          setSearchResults(res.data.questions || []);
+          setShowSearchDropdown((res.data.questions || []).length > 0);
+        })
+        .catch(err => {
+          console.error('Search error:', err);
+        })
+        .finally(() => {
+          setIsSearching(false);
+        });
+    } else {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+    }
+  };
+
+  const handleSelectSearchResult = (q) => {
+    setTitle(q.title);
+    setUrl(q.url);
+    if (q.difficulty) setDifficulty(q.difficulty);
+    setShowSearchDropdown(false);
+    setSmartInput('');
+    setShowCodeSection(true);
+    handleImportFromUrl(q.url);
+  };
+
+  const handleCodeChange = (newCode) => {
+    setCode(newCode);
+    const detected = detectCodeLanguage(newCode);
+    if (detected) {
+      setCodeLanguage(detected);
+      setDetectedLangBadge(detected);
+    }
+  };
+
+  const handleSummarizeCode = async () => {
+    if (!code.trim()) return;
+    setIsSummarizingCode(true);
+    try {
+      const res = await axios.post('/api/ai/summarize-code', {
+        title: title || 'Algorithmic Problem',
+        code,
+        codeLanguage
+      });
+      const summaryText = `${res.data.intuition}\n\n**Complexity:** ${res.data.complexity}`;
+      setNotes(summaryText);
+    } catch (err) {
+      console.error('Failed to summarize code:', err);
+      alert('Could not summarize code: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setIsSummarizingCode(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title || !notes) return;
@@ -746,6 +862,10 @@ function App() {
       setTitle(''); setUrl(''); setNotes(''); setCode(''); setDifficulty('Medium');
       setTestCases([{ input: '', expectedOutput: '' }]);
       setShowCodeSection(false);
+      setDetectedLangBadge(null);
+      setSmartInput('');
+      setImportSuccess('');
+      setImportError('');
       fetchQuestions();
       fetchActivityStats();
     } catch (error) {
@@ -1457,6 +1577,93 @@ function App() {
                 </button>
               </div>
 
+              {/* SMART IMPORT OMNIBOX & LINK AUTO-SCRAPER */}
+              <div className="relative p-3.5 rounded-xl bg-gradient-to-r from-indigo-500/[0.08] via-purple-500/[0.05] to-emerald-500/[0.08] border border-indigo-500/25">
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 font-mono">
+                    <Zap className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                    <span>Smart Import (LeetCode, GFG, or Search by #)</span>
+                  </div>
+                  {importSuccess && (
+                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                      <CheckCheck className="w-3 h-3" /> {importSuccess}
+                    </span>
+                  )}
+                  {importError && (
+                    <span className="text-[11px] text-rose-500 font-medium flex items-center gap-1">
+                      {importError}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      {smartInput.includes('http') ? <Link2 className="w-3.5 h-3.5 text-indigo-500" /> : <Search className="w-3.5 h-3.5" />}
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Paste LeetCode / GFG link, or type problem number (e.g. 739, LRU Cache)..."
+                      value={smartInput}
+                      onChange={(e) => handleSearchInputChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (smartInput.includes('http') || smartInput.includes('leetcode.com') || smartInput.includes('geeksforgeeks.org')) {
+                            handleImportFromUrl(smartInput);
+                          }
+                        }
+                      }}
+                      className="w-full glass-input rounded-xl pl-9 pr-3 py-2 text-xs font-mono"
+                    />
+
+                    {/* LIVE AUTOCOMPLETE DROPDOWN */}
+                    {showSearchDropdown && searchResults.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 z-30 glass-panel rounded-xl shadow-2xl border border-indigo-500/30 overflow-hidden divide-y divide-slate-200/50 dark:divide-white/[0.05]">
+                        {searchResults.map((item) => (
+                          <div
+                            key={item.id}
+                            onClick={() => handleSelectSearchResult(item)}
+                            className="p-2.5 hover:bg-indigo-600/10 cursor-pointer flex items-center justify-between transition-colors text-xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-800 dark:text-slate-200 font-mono">{item.title}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">({item.tags.slice(0, 2).join(', ')})</span>
+                            </div>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                              item.difficulty === 'Easy' ? 'bg-emerald-500/20 text-emerald-400' :
+                              item.difficulty === 'Hard' ? 'bg-rose-500/20 text-rose-400' :
+                              'bg-amber-500/20 text-amber-400'
+                            }`}>
+                              {item.difficulty}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isImportingUrl || !smartInput.trim()}
+                    onClick={() => handleImportFromUrl(smartInput)}
+                    className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-indigo-600/20 active:scale-95"
+                  >
+                    {isImportingUrl ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Fetching...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="w-3.5 h-3.5" />
+                        <span>Fetch</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
               {/* Title & URL Inputs */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 <div>
@@ -1516,11 +1723,34 @@ function App() {
                 </div>
               </div>
 
-              {/* Intuition Notes Textarea */}
+              {/* Intuition Notes Textarea with AI Code-Summarizer */}
               <div>
-                <label className="text-xs text-slate-600 dark:text-slate-400 font-medium mb-1 block">Intuition &amp; Key Notes</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs text-slate-600 dark:text-slate-400 font-medium">Intuition &amp; Key Notes</label>
+                  {code.trim() && (
+                    <button
+                      type="button"
+                      disabled={isSummarizingCode}
+                      onClick={handleSummarizeCode}
+                      className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 flex items-center gap-1 font-mono transition-colors active:scale-95"
+                      title="Use AI to summarize your intuition directly from your pasted code"
+                    >
+                      {isSummarizingCode ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Analyzing Your Code...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3 h-3 text-amber-500" />
+                          <span>✨ Auto-Fill Notes from Code</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
                 <textarea
-                  placeholder="Summarize the core insight, approach, and edge cases in your own words..."
+                  placeholder="Summarize the core insight, approach, and edge cases in your own words (or paste your code below and click 'Auto-Fill Notes from Code')..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
@@ -1533,14 +1763,24 @@ function App() {
               {showCodeSection && (
                 <div className="p-4 rounded-xl bg-slate-200/30 dark:bg-slate-900/60 border border-slate-300/40 dark:border-indigo-500/20 space-y-4">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5 font-mono">
-                      <Code className="w-4 h-4" /> Solution Code
-                    </label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                        <Code className="w-4 h-4" /> Solution Code
+                      </label>
+                      {detectedLangBadge && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/25 font-mono">
+                          Auto-detected: {detectedLangBadge.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-slate-600 dark:text-slate-400">Language:</span>
                       <select
                         value={codeLanguage}
-                        onChange={(e) => setCodeLanguage(e.target.value)}
+                        onChange={(e) => {
+                          setCodeLanguage(e.target.value);
+                          setDetectedLangBadge(null);
+                        }}
                         className="glass-input text-xs px-2.5 py-1 rounded-lg font-mono text-indigo-600 dark:text-indigo-300"
                       >
                         <option value="cpp" className="bg-slate-50 dark:bg-[#141926] text-slate-900 dark:text-slate-100">C++</option>
@@ -1554,7 +1794,7 @@ function App() {
 
                   <textarea
                     value={code}
-                    onChange={(e) => setCode(e.target.value)}
+                    onChange={(e) => handleCodeChange(e.target.value)}
                     onKeyDown={(e) => handleCodeKeyDown(e, code, setCode)}
                     placeholder={getStarterTemplate(codeLanguage, title || 'Problem')}
                     rows={8}

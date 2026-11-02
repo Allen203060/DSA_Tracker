@@ -13,8 +13,13 @@ import {
   classifyPattern, 
   gradeRecall, 
   gradeCode, 
-  generateBoilerplate 
+  generateBoilerplate,
+  summarizeApproachFromCode
 } from '../controllers/aiController.js';
+import { 
+  importProblemFromUrl, 
+  searchProblems 
+} from '../controllers/importController.js';
 import { register, login, getMe, googleAuth, resetPassword, changePassword } from '../controllers/authController.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -45,10 +50,15 @@ router.delete('/questions/:id', requireAuth, deleteQuestion);
 // --- User-Scoped Analytics & Streaks ---
 router.get('/analytics/activity', requireAuth, getActivityStats);
 
+// --- Universal Smart Importer & Problem Search ---
+router.post('/import/url', requireAuth, importProblemFromUrl);
+router.get('/import/search', requireAuth, searchProblems);
+
 // --- AI Study Buddy & Evaluator ---
 router.post('/ai/classify', requireAuth, classifyPattern);
 router.post('/ai/grade', requireAuth, gradeRecall);
 router.post('/ai/grade-code', requireAuth, gradeCode);
 router.post('/ai/generate-boilerplate', requireAuth, generateBoilerplate);
+router.post('/ai/summarize-code', requireAuth, summarizeApproachFromCode);
 
 export default router;

@@ -226,3 +226,53 @@ export const generateBoilerplate = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const summarizeApproachFromCode = async (req, res) => {
+  const { title, code, codeLanguage } = req.body;
+
+  if (!code || !code.trim()) {
+    return res.status(400).json({ error: "Please provide your solution code to summarize." });
+  }
+
+  try {
+    const summarySchema = z.object({
+      intuition: z.string().describe("A concise 2-3 sentence conversational intuition note capturing the student's exact algorithmic technique, naming their specific variables and data structures."),
+      complexity: z.string().describe("Estimated Time and Space complexity (e.g. 'O(N) Time, O(N) Space').")
+    });
+
+    const modelName = process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
+    const llm = new ChatOpenRouter({
+      model: modelName,
+      temperature: 0,
+      maxTokens: 600,
+    }).withStructuredOutput(summarySchema);
+
+    const prompt = `
+      You are an expert DSA coach and peer tutor.
+      A student just solved a problem and pasted their personal solution code below:
+
+      Problem Title: ${title || 'Algorithmic Problem'}
+      Language: ${codeLanguage || 'cpp'}
+
+      Student Solution Code:
+      \`\`\`${codeLanguage || 'cpp'}
+      ${code}
+      \`\`\`
+
+      TASK:
+      Generate a brief, high-retention intuition summary based STRICTLY on the student's personal code.
+      1. Mention their specific variable names, helper data structures, or pointers (e.g., "We maintain a monotonic decreasing stack \`st\` of indices...").
+      2. Explain the core aha-moment / invariant in 2 concise sentences.
+      3. State the Time and Space complexity.
+      
+      Keep it personal and punchy so when the student reviews this in 2 weeks, they instantly remember THEIR thought process.
+    `;
+
+    const response = await llm.invoke([{ role: "user", content: prompt }]);
+    res.json(response);
+  } catch (error) {
+    console.error("summarizeApproachFromCode Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+

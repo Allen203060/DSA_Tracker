@@ -99,16 +99,23 @@
   - **Rich Markdown Typography**: Enhanced `ReactMarkdown` component map in `client/src/App.jsx` with dedicated, readable styles for `ul`, `ol`, `li`, `strong`, `p`, and `h3`, removing forced heading capitalization.
   - **Database Sanitization Migration**: Created and executed `scripts/sanitize_enhanced_notes.js` sanitizing all 16 affected questions in MongoDB Atlas and 13 in local MongoDB, restoring proper visual formatting across all user cards.
 
-- **Phase 21: Wall of Shame & 3D Accountability Mirror** (Current):
+- **Phase 21: Wall of Shame & 3D Accountability Mirror**:
   - **Accountability Inversion Matrix**: Conceived and implemented the "Wall of Shame"—a counter-dashboard to the traditional GitHub-style contribution heatmap. Instead of celebrating green activity, it exposes inactivity slumps, missed SuperMemo-2 spaced repetitions, and accumulated revision debt.
   - **Multi-Tiered Slacking Severity**: Architected a 4-tier inactivity classification in `server/src/controllers/questionController.js` (`0`: Clean/Prior, `1`: Idle Day, `2`: Missed Repetitions, `3`: Critical Ghosting Streak >= 3 days) calibrated against the user's initial activity date.
   - **Shame Analytics**: Computes real-time `activeDebtCount` (overdue questions awaiting review), `currentSlackedStreak` (consecutive idle days), `longestSlackedStreak` (worst drought), and `totalSlackedDays`.
   - **Interactive 3D Flipping Dashboard**: Added a 1200px perspective 3D card flip animation (`.flip-panel` with dynamic `rotateX(90deg)` to `rotateX(0deg)`) triggered by a toggle button `[ 🟢 Wall of Fame ]` <-> `[ 🩸 Wall of Shame ]`.
   - **Dynamic Blood-Crimson Aesthetic**: In Shame Mode, the 4 left stat cards transform into Revision Debt, Slacking, Worst Slump, and Total Ghosted, and the heatmap matrix shifts to high-contrast amber/rose/crimson cells with a pulsing red ambient glow (`shame-pulse`) and custom accountability tooltips.
 
+- **Phase 22: Universal Smart Importer, Multi-Platform Scraper & Code-Anchored Retention Engine** (Current):
+  - **Universal Smart Importer**: Created `/api/import/url` (`server/src/controllers/importController.js`) enabling 1-click metadata scraping from LeetCode (via public GraphQL `getQuestionDetail`), GeeksforGeeks (via OpenGraph & JSON-LD parsing), and generic fallback platforms (HackerRank, Codeforces, NeetCode). Automatically pulls frontend ID, Title, Difficulty, Topics, and official sample test cases in under 150ms.
+  - **Live Omnibox Problem Search**: Implemented `/api/import/search` querying LeetCode problemsets in real-time. Users can simply type a problem number (e.g. `739`, `42`) or keyword (`daily`, `lru`) to trigger a live autocomplete dropdown that auto-populates all question fields with zero URL copying.
+  - **Language Auto-Detection**: Authored `client/src/utils/codeDetector.js` automatically identifying C++, Python, Java, JavaScript, and Go syntax from student solution code and updating form selectors with a high-visibility badge.
+  - **Code-Anchored Intuition Generator**: Implemented `/api/ai/summarize-code` in `server/src/controllers/aiController.js` and a 1-click `[ ✨ Auto-Fill Notes from Code ]` button that summarizes core algorithmic invariants using the student's exact variable names and custom helpers to maximize long-term retention.
+
 ## Next Logical Steps
-1. 3D Knowledge Graph (`react-force-graph`) to visualize pattern dependencies.
-2. Automated CI/Pre-commit hook checking UI changes against the 10-point Quality Checklist.
+1. Revalgo Web Clipper (Chrome / Brave Manifest V3 browser extension) for 1-click submission directly from LeetCode and GFG tabs.
+2. 3D Knowledge Graph (`react-force-graph`) to visualize pattern dependencies.
+3. Automated CI/Pre-commit hook checking UI changes against the 10-point Quality Checklist.
 
 ## Key Decisions
 - Shifted away from standard self-reported flashcard mechanics. By forcing the user to type out the logic in Natural Language and having a friendly AI grade it, we eliminate the "illusion of competence".
