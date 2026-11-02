@@ -6,8 +6,12 @@
   "permissions": [
     "activeTab",
     "storage",
-    "scripting"
+    "scripting",
+    "notifications"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "host_permissions": [
     "*://*.leetcode.com/*",
     "*://leetcode.com/*",

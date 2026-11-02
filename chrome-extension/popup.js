@@ -44,9 +44,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     statusMsg.style.display = 'none';
   }
 
-  // Load saved token
-  const config = await chrome.storage.local.get(['revalgo_token']);
+  function persistDraft() {
+    chrome.storage.local.set({
+      draft_question: {
+        title: titleInput.value,
+        url: urlInput.value,
+        notes: notesInput.value,
+        code: codeTextarea.value,
+        difficulty: capturedDifficulty,
+        language: capturedLanguage,
+        updatedAt: Date.now()
+      }
+    });
+  }
+
+  // Load saved token & draft
+  const config = await chrome.storage.local.get(['revalgo_token', 'draft_question']);
   let token = config.revalgo_token || '';
+
+  // Restore unsaved draft if user previously closed popup
+  if (config.draft_question) {
+    const draft = config.draft_question;
+    if (draft.notes) notesInput.value = draft.notes;
+    if (draft.code) {
+      codeTextarea.value = draft.code;
+      capturedCode = draft.code;
+    }
+    if (draft.title) titleInput.value = draft.title;
+  }
 
   // Auto-detect Token from open Revalgo tabs if token is missing
   if (!token) {
@@ -98,7 +123,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(hideStatus, 3000);
   });
 
-  // Manual code input synchronization
+  // Manual code & notes input draft synchronization
+  titleInput.addEventListener('input', persistDraft);
+  notesInput.addEventListener('input', persistDraft);
+
   codeTextarea.addEventListener('input', () => {
     capturedCode = codeTextarea.value;
     const detected = detectCodeLanguage(codeTextarea.value);
@@ -106,12 +134,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       capturedLanguage = detected;
       langBadge.innerText = detected.toUpperCase();
     }
+    persistDraft();
   });
 
   if (clearCodeBtn) {
     clearCodeBtn.addEventListener('click', () => {
       codeTextarea.value = '';
       capturedCode = '';
+      persistDraft();
       codeTextarea.focus();
     });
   }
@@ -135,6 +165,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       capturedLanguage = res.language;
       langBadge.innerText = res.language.toUpperCase();
     }
+    persistDraft();
   }
 
   function fallbackParseFromTab(tab) {
@@ -167,6 +198,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (title) {
       titleInput.value = title;
     }
+    persistDraft();
   }
 
   // Query Active Tab to scrape problem & code
@@ -256,6 +288,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const data = await response.json();
       notesInput.value = `${data.intuition}\n\n**Complexity:** ${data.complexity}`;
+      persistDraft();
       showStatus('✨ Notes auto-generated from your variable names!');
       setTimeout(hideStatus, 3500);
     } catch (err) {
@@ -270,7 +303,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Submit to Revalgo
+  // Resilient Background Logging to Revalgo
   submitBtn.addEventListener('click', async () => {
     const cfg = await chrome.storage.local.get(['revalgo_token']);
     const authToken = cfg.revalgo_token;
@@ -300,82 +333,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span>Saving to Revalgo...</span>';
-    hideStatus();
+    submitBtn.innerHTML = '<span>Saving in Background...</span>';
+    showStatus('Saving... You can safely close this popup or switch tabs.');
 
-    try {
-      // 1. Classify with AI
-      const aiRes = await fetch(`${SERVER_URL}/api/ai/classify`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({ title, url, notes })
-      });
-
-      if (!aiRes.ok) {
-        if (aiRes.status === 401) {
-          throw new Error('Unauthorized (401). Please verify your token in ⚙ Config.');
-        }
-        let errMsg = 'AI classification failed';
-        try {
-          const errData = await aiRes.json();
-          errMsg = errData.error || errMsg;
-        } catch (_) {
-          errMsg = `${aiRes.status} ${aiRes.statusText}`;
-        }
-        throw new Error(errMsg);
+    // Delegate to Background Service Worker so closing popup NEVER aborts the save
+    chrome.runtime.sendMessage({
+      type: 'LOG_QUESTION_ASYNC',
+      payload: {
+        title,
+        url,
+        notes,
+        code: currentCode,
+        codeLanguage: currentLang,
+        difficulty: capturedDifficulty,
+        testCases: capturedTestCases,
+        authToken
+      }
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        // If popup closed before response arrived, background service worker finished it!
+        return;
       }
 
-      const aiData = await aiRes.json();
-
-      // 2. Post Question to Revalgo
-      const qRes = await fetch(`${SERVER_URL}/api/questions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({
-          title,
-          url,
-          notes,
-          enhancedNotes: aiData.enhancedNotes,
-          topic: aiData.topic,
-          subtopic: aiData.subtopic,
-          difficulty: capturedDifficulty || aiData.difficulty || 'Medium',
-          patternNames: aiData.patterns || [],
-          code: currentCode,
-          codeLanguage: currentLang,
-          testCases: capturedTestCases
-        })
-      });
-
-      if (!qRes.ok) {
-        let errMsg = 'Failed to save question';
-        try {
-          const errData = await qRes.json();
-          errMsg = errData.error || errMsg;
-        } catch (_) {
-          errMsg = `${qRes.status} ${qRes.statusText}`;
-        }
-        throw new Error(errMsg);
+      if (response && response.success) {
+        showStatus('✓ Question Saved! Spaced repetition scheduled for tomorrow.');
+        submitBtn.innerHTML = '<span>✓ Saved to Revalgo!</span>';
+        setTimeout(() => {
+          window.close();
+        }, 1500);
+      } else {
+        showStatus(`Save Error: ${response?.error || 'Failed to save question'}`, true);
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>🚀 Log to Revalgo &amp; Schedule SM-2</span>';
       }
-
-      showStatus('✓ Question Saved! Spaced repetition scheduled for tomorrow.');
-      submitBtn.innerHTML = '<span>✓ Saved to Revalgo!</span>';
-      setTimeout(() => {
-        window.close();
-      }, 1800);
-    } catch (err) {
-      let message = err.message || 'Connection failed';
-      if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
-        message = 'Cannot connect to Revalgo cloud. Please check your connection.';
-      }
-      showStatus(`Save Error: ${message}`, true);
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = '<span>🚀 Log to Revalgo &amp; Schedule SM-2</span>';
-    }
+    });
   });
 });
