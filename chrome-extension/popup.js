@@ -5,7 +5,19 @@ let capturedLanguage = 'cpp';
 let capturedDifficulty = 'Medium';
 let capturedTestCases = [];
 
-const DEFAULT_SERVER_URL = 'https://dsa-tracker.onrender.com';
+const LOCALHOST_SERVER_URL = 'http://localhost:5000';
+const CLOUD_SERVER_URL = 'https://dsa-tracker.onrender.com';
+const DEFAULT_SERVER_URL = LOCALHOST_SERVER_URL;
+
+function detectCodeLanguage(code) {
+  if (!code) return 'cpp';
+  if (/^\s*(#include|using namespace|std::|vector<|int main|class Solution)/m.test(code)) return 'cpp';
+  if (/^\s*(def |import |from |class Solution:|print\(|self\.)/m.test(code)) return 'python';
+  if (/^\s*(public class|private |protected |System\.out|ArrayList<|HashMap<)/m.test(code)) return 'java';
+  if (/^\s*(function |const |let |var |console\.log|module\.exports)/m.test(code)) return 'javascript';
+  if (/^\s*(package |func |fmt\.)/m.test(code)) return 'go';
+  return 'cpp';
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   const toggleSettingsBtn = document.getElementById('toggleSettingsBtn');
@@ -13,12 +25,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const serverUrlInput = document.getElementById('serverUrlInput');
   const tokenInput = document.getElementById('tokenInput');
   const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+  const setLocalhostBtn = document.getElementById('setLocalhostBtn');
+  const setCloudBtn = document.getElementById('setCloudBtn');
 
   const titleInput = document.getElementById('titleInput');
   const urlInput = document.getElementById('urlInput');
   const diffBadge = document.getElementById('diffBadge');
   const langBadge = document.getElementById('langBadge');
-  const codePreview = document.getElementById('codePreview');
+  const codeTextarea = document.getElementById('codeTextarea');
+  const clearCodeBtn = document.getElementById('clearCodeBtn');
   const notesInput = document.getElementById('notesInput');
   const aiNotesBtn = document.getElementById('aiNotesBtn');
   const submitBtn = document.getElementById('submitBtn');
@@ -34,6 +49,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     statusMsg.style.display = 'none';
   }
 
+  function updatePresetButtons(activeUrl) {
+    if (activeUrl && activeUrl.includes('localhost')) {
+      setLocalhostBtn.classList.add('active');
+      setCloudBtn.classList.remove('active');
+    } else if (activeUrl && activeUrl.includes('onrender.com')) {
+      setCloudBtn.classList.add('active');
+      setLocalhostBtn.classList.remove('active');
+    } else {
+      setLocalhostBtn.classList.remove('active');
+      setCloudBtn.classList.remove('active');
+    }
+  }
+
   // Load saved settings
   const config = await chrome.storage.local.get(['revalgo_server_url', 'revalgo_token']);
   const serverUrl = config.revalgo_server_url || DEFAULT_SERVER_URL;
@@ -41,6 +69,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   serverUrlInput.value = serverUrl;
   tokenInput.value = token;
+  updatePresetButtons(serverUrl);
 
   if (!token) {
     settingsPanel.classList.remove('hidden');
@@ -49,6 +78,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   toggleSettingsBtn.addEventListener('click', () => {
     settingsPanel.classList.toggle('hidden');
+  });
+
+  setLocalhostBtn.addEventListener('click', () => {
+    serverUrlInput.value = LOCALHOST_SERVER_URL;
+    updatePresetButtons(LOCALHOST_SERVER_URL);
+  });
+
+  setCloudBtn.addEventListener('click', () => {
+    serverUrlInput.value = CLOUD_SERVER_URL;
+    updatePresetButtons(CLOUD_SERVER_URL);
+  });
+
+  serverUrlInput.addEventListener('input', () => {
+    updatePresetButtons(serverUrlInput.value.trim());
   });
 
   saveSettingsBtn.addEventListener('click', async () => {
@@ -65,6 +108,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(hideStatus, 3000);
   });
 
+  // Manual code input synchronization
+  codeTextarea.addEventListener('input', () => {
+    capturedCode = codeTextarea.value;
+    const detected = detectCodeLanguage(codeTextarea.value);
+    if (detected) {
+      capturedLanguage = detected;
+      langBadge.innerText = detected.toUpperCase();
+    }
+  });
+
+  if (clearCodeBtn) {
+    clearCodeBtn.addEventListener('click', () => {
+      codeTextarea.value = '';
+      capturedCode = '';
+      codeTextarea.focus();
+    });
+  }
+
   function applyScrapedData(res) {
     if (!res) return;
     if (res.title && (!titleInput.value || titleInput.value === 'GeeksforGeeks Problem')) {
@@ -76,9 +137,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       diffBadge.innerText = res.difficulty;
       diffBadge.className = `badge badge-${res.difficulty.toLowerCase()}`;
     }
-    if (res.code) {
+    if (res.code && (!codeTextarea.value.trim() || codeTextarea.value === capturedCode)) {
       capturedCode = res.code;
-      codePreview.innerText = res.code.slice(0, 300) + (res.code.length > 300 ? '\n... (truncated)' : '');
+      codeTextarea.value = res.code;
     }
     if (res.language) {
       capturedLanguage = res.language;
@@ -163,10 +224,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    if (!capturedCode.trim()) {
-      showStatus('No code detected in editor to summarize.', true);
+    const currentCode = (codeTextarea.value || capturedCode || '').trim();
+    if (!currentCode) {
+      showStatus('Please paste or write your solution code in the Solution Code box above.', true);
+      codeTextarea.focus();
       return;
     }
+
+    const currentLang = detectCodeLanguage(currentCode) || capturedLanguage || 'cpp';
 
     aiNotesBtn.disabled = true;
     aiNotesBtn.innerText = 'Analyzing...';
@@ -181,22 +246,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         body: JSON.stringify({
           title: titleInput.value || 'Problem',
-          code: capturedCode,
-          codeLanguage: capturedLanguage
+          code: currentCode,
+          codeLanguage: currentLang
         })
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Failed to summarize code');
+        if (response.status === 401) {
+          throw new Error(`Unauthorized (401). Your token does not match ${baseUrl}. Check your Server Target in ⚙ Config.`);
+        }
+        if (response.status === 404) {
+          throw new Error(`Endpoint not found (404) at ${baseUrl}. Verify your Server Target URL.`);
+        }
+        let errMsg = 'Failed to summarize code';
+        try {
+          const errData = await response.json();
+          errMsg = errData.error || errMsg;
+        } catch (_) {
+          errMsg = `${response.status} ${response.statusText}`;
+        }
+        throw new Error(errMsg);
       }
 
       const data = await response.json();
       notesInput.value = `${data.intuition}\n\n**Complexity:** ${data.complexity}`;
-      showStatus('Notes auto-generated from your variable names!');
+      showStatus('✨ Notes auto-generated from your variable names!');
       setTimeout(hideStatus, 3500);
     } catch (err) {
-      showStatus(`AI Summary Error: ${err.message}`, true);
+      let message = err.message || 'Connection failed';
+      if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
+        message = `Cannot connect to ${baseUrl}. In ⚙ Config, ensure Server Target matches your running app (e.g. Localhost 5000).`;
+      }
+      showStatus(`AI Summary Error: ${message}`, true);
     } finally {
       aiNotesBtn.disabled = false;
       aiNotesBtn.innerText = '✨ Auto-Fill from Code';
@@ -218,14 +299,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const title = titleInput.value.trim();
     const url = urlInput.value.trim();
     const notes = notesInput.value.trim();
+    const currentCode = (codeTextarea.value || capturedCode || '').trim();
+    const currentLang = detectCodeLanguage(currentCode) || capturedLanguage || 'cpp';
 
     if (!title) {
       showStatus('Please enter a problem title.', true);
+      titleInput.focus();
       return;
     }
 
     if (!notes) {
       showStatus('Please write a brief intuition note (or click Auto-Fill).', true);
+      notesInput.focus();
       return;
     }
 
@@ -245,8 +330,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
 
       if (!aiRes.ok) {
-        const errData = await aiRes.json();
-        throw new Error(errData.error || 'AI classification failed');
+        if (aiRes.status === 401) {
+          throw new Error(`Unauthorized (401). Check your token and server URL in ⚙ Config.`);
+        }
+        let errMsg = 'AI classification failed';
+        try {
+          const errData = await aiRes.json();
+          errMsg = errData.error || errMsg;
+        } catch (_) {
+          errMsg = `${aiRes.status} ${aiRes.statusText}`;
+        }
+        throw new Error(errMsg);
       }
 
       const aiData = await aiRes.json();
@@ -267,15 +361,21 @@ document.addEventListener('DOMContentLoaded', async () => {
           subtopic: aiData.subtopic,
           difficulty: capturedDifficulty || aiData.difficulty || 'Medium',
           patternNames: aiData.patterns || [],
-          code: capturedCode,
-          codeLanguage: capturedLanguage,
+          code: currentCode,
+          codeLanguage: currentLang,
           testCases: capturedTestCases
         })
       });
 
       if (!qRes.ok) {
-        const errData = await qRes.json();
-        throw new Error(errData.error || 'Failed to save question');
+        let errMsg = 'Failed to save question';
+        try {
+          const errData = await qRes.json();
+          errMsg = errData.error || errMsg;
+        } catch (_) {
+          errMsg = `${qRes.status} ${qRes.statusText}`;
+        }
+        throw new Error(errMsg);
       }
 
       showStatus('✓ Question Saved! Spaced repetition scheduled for tomorrow.');
@@ -284,7 +384,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.close();
       }, 1800);
     } catch (err) {
-      showStatus(`Save Error: ${err.message}`, true);
+      let message = err.message || 'Connection failed';
+      if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
+        message = `Cannot connect to ${baseUrl}. Verify your server is reachable.`;
+      }
+      showStatus(`Save Error: ${message}`, true);
       submitBtn.disabled = false;
       submitBtn.innerHTML = '<span>🚀 Log to Revalgo &amp; Schedule SM-2</span>';
     }

@@ -106,7 +106,36 @@
     .badge-medium { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
     .badge-hard { background: rgba(244, 63, 94, 0.2); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.3); }
     
-    .code-preview {
+    .preset-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .preset-btn {
+      flex: 1;
+      background: #0f1422;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      color: #94a3b8;
+      font-size: 10.5px;
+      padding: 5px 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .preset-btn:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: #6366f1;
+      color: #e2e8f0;
+    }
+    .preset-btn.active {
+      background: rgba(99, 102, 241, 0.25);
+      border-color: #6366f1;
+      color: #a5b4fc;
+      font-weight: 600;
+    }
+
+    .code-textarea {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 11px;
       color: #38bdf8;
@@ -114,8 +143,11 @@
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 8px;
       padding: 8px;
-      max-height: 100px;
-      overflow-y: auto;
+      width: 100%;
+      min-height: 85px;
+      max-height: 150px;
+      line-height: 1.4;
+      resize: vertical;
       white-space: pre;
     }
     .btn-primary {
@@ -175,8 +207,14 @@
 
   <!-- SETTINGS DRAWER -->
   <div id="settingsPanel" class="card hidden">
-    <div class="input-label">Revalgo Web App URL</div>
-    <input type="url" id="serverUrlInput" placeholder="https://dsa-tracker.onrender.com" value="https://dsa-tracker.onrender.com" style="margin-bottom: 8px;">
+    <div class="input-label">
+      <span>Revalgo Server Target</span>
+    </div>
+    <div class="preset-row">
+      <button type="button" id="setLocalhostBtn" class="preset-btn">💻 Localhost (5000)</button>
+      <button type="button" id="setCloudBtn" class="preset-btn">☁️ Cloud (Render)</button>
+    </div>
+    <input type="url" id="serverUrlInput" placeholder="http://localhost:5000" value="http://localhost:5000" style="margin-bottom: 8px;">
     
     <div class="input-label">Your Revalgo JWT Token</div>
     <input type="text" id="tokenInput" placeholder="Paste your token from Revalgo Profile..." style="margin-bottom: 10px;">
@@ -196,13 +234,16 @@
       <input type="url" id="urlInput" placeholder="Problem URL..." style="color: #94a3b8; font-size: 11px;">
     </div>
 
-    <!-- Solution Code Preview Card -->
+    <!-- Solution Code Card -->
     <div class="card">
       <div class="input-label">
-        <span>Captured Code</span>
-        <span id="langBadge" style="font-size: 10px; color: #818cf8; text-transform: uppercase;">C++</span>
+        <span>Solution Code</span>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span id="langBadge" style="font-size: 10px; color: #818cf8; text-transform: uppercase;">C++</span>
+          <button id="clearCodeBtn" type="button" style="background:none; border:none; color:#64748b; font-size:10px; cursor:pointer;" title="Clear Code">Clear</button>
+        </div>
       </div>
-      <div id="codePreview" class="code-preview">// No code captured from editor</div>
+      <textarea id="codeTextarea" class="code-textarea" rows="4" placeholder="// Your solution code will appear here, or paste it here..."></textarea>
     </div>
 
     <!-- Intuition Notes Card -->

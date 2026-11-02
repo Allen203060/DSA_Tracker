@@ -327,7 +327,25 @@ Users reviewing their preparation workflow needed a clear, chronological view of
 3. **API-Level Parity**: Updated `getAllQuestions` controller to accept `?sort=recent`, performing MongoDB database-level `{ createdAt: -1 }` sorting for external or deep-linked queries.
 4. **Relative Time Formatting**: Introduced a lightweight `formatTimeAgo` utility rendering clean relative badges (`Just now`, `5m ago`, `2h ago`, `Yesterday`) next to the difficulty tag on each problem card.
 **Key Takeaway (Interview Insight):**
-When designing data-dense dashboards, never couple view transformations to network roundtrips if the required dataset is already loaded in memory. Deriving different projections (sorted, grouped, or filtered) reactively on the client yields instantaneous (0ms) UX while keeping the backend controller available for paginated or direct API consumers.
+## Challenge 28: Browser Extension AI Summary Connectivity, Dormant Cloud Targets & Editable Code Fallbacks
+**The Problem:**
+When clicking `[ ✨ Auto-Fill from Code ]` in the Revalgo Browser Companion extension, the action failed with `TypeError: Failed to fetch`, `401 Unauthorized`, or `No code detected in editor to summarize`, preventing students from generating code-anchored intuition notes.
+
+**Root Cause:**
+1. **Server Target Disconnect (Local Dev vs Dormant Cloud)**: The extension's default server URL in `popup.js` was hardcoded to `https://dsa-tracker.onrender.com`. When developing or running locally on `http://localhost:5000` / `5173`, the Render instance was spun down (timing out with HTTP 28 / `Failed to fetch`), or JWT tokens minted by the local server were rejected with `401 Unauthorized` because of mismatched `JWT_SECRET` keys.
+2. **Read-Only Code Preview Div**: `#codePreview` in `popup.html` was rendered as a static, uneditable `<div>`. If content script DOM scraping was delayed or failed to detect lines in Monaco/Ace, `capturedCode` remained empty. When the user attempted to click `Auto-Fill from Code`, the popup immediately blocked them with `No code detected in editor to summarize` without providing any way to paste or edit code manually.
+3. **Opaque Error Feedback**: Catch blocks simply rendered `err.message` (`Failed to fetch`), leaving users with no indication of network topology mismatches between localhost and cloud.
+4. **Missing Server Target in Web App Onboarding**: The web app's installation modal only offered a token copy button without displaying the local backend target URL (`http://localhost:5000`).
+
+**Solution:**
+1. **Interactive Solution Code Textarea & Dynamic Language Detection**: Replaced the read-only preview `<div>` with an interactive, syntax-styled `<textarea id="codeTextarea">`. Synced it bidirectionally with content script scraping, and added real-time language detection (`detectCodeLanguage`) so pasted code automatically updates the language badge (`cpp`, `python`, `java`, `javascript`, `go`).
+2. **1-Click Target Presets in Settings Drawer**: Added `[ 💻 Localhost (5000) ]` and `[ ☁️ Cloud (Render) ]` preset buttons directly in the extension's `⚙ Config` panel, enabling instantaneous 1-click toggling between local dev and cloud deployment.
+3. **Diagnostic Connection & Auth Error Handling**: Enhanced error handling in `popup.js` to catch network failures and 401 statuses, displaying clear diagnostic messages explaining how to align the Server Target URL with the running app.
+4. **Dual 1-Click Copy Boxes in Web App**: Added dynamic `1. Revalgo Server Target URL` alongside `2. Your Account API Token` with 1-click copy buttons in the web dashboard's extension modal.
+5. **Repackaged Self-Hosted ZIP**: Rebuilt and distributed the updated extension bundle at `client/public/revalgo-companion-extension.zip`.
+
+**Key Takeaway (Interview Insight):**
+When shipping client-side browser extensions for full-stack applications with dual deployment modes (local dev and cloud hosting), never hardcode remote server origins or treat DOM scraping as an unrecoverable single point of failure. Provide editable fallback inputs for manual user override, rapid server target presets with environment detection, and rich diagnostic error states to ensure seamless developer and user workflows.
 
 
 

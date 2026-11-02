@@ -37,7 +37,7 @@ function extractLeetCodeData() {
 
   // Extract Solution Code from Monaco Editor
   let code = '';
-  const monacoLines = Array.from(document.querySelectorAll('.monaco-editor .view-line'));
+  const monacoLines = Array.from(document.querySelectorAll('.monaco-editor .view-line, .view-lines .view-line'));
   if (monacoLines.length > 0) {
     code = monacoLines.map(l => l.innerText.replace(/\u00A0/g, ' ')).join('\n').trim();
   }
@@ -45,7 +45,8 @@ function extractLeetCodeData() {
   // Extract Language
   let language = 'cpp';
   const langBtn = document.querySelector('button[id*="headlessui-listbox-button"]') ||
-                  document.querySelector('button[aria-haspopup="listbox"]');
+                  document.querySelector('button[aria-haspopup="listbox"]') ||
+                  document.querySelector('button[data-cy="lang-select"]');
   if (langBtn && langBtn.innerText) {
     const lText = langBtn.innerText.toLowerCase();
     if (lText.includes('c++')) language = 'cpp';
@@ -53,6 +54,8 @@ function extractLeetCodeData() {
     else if (lText.includes('java') && !lText.includes('script')) language = 'java';
     else if (lText.includes('script')) language = 'javascript';
     else if (lText.includes('go')) language = 'go';
+  } else {
+    language = detectCodeLanguage(code);
   }
 
   return {
@@ -198,7 +201,7 @@ function extractGFGData() {
 
   // Extract Solution Code from Monaco or Ace Editor
   let code = '';
-  const monacoLines = Array.from(document.querySelectorAll('.monaco-editor .view-line, .ace_line, [class*="ace_line"]'));
+  const monacoLines = Array.from(document.querySelectorAll('.ace_layer.ace_text-layer .ace_line, .monaco-editor .view-line, .ace_line, [class*="ace_line"], .code-editor-content pre'));
   if (monacoLines.length > 0) {
     code = monacoLines.map(l => l.innerText.replace(/\u00A0/g, ' ')).join('\n').trim();
   }

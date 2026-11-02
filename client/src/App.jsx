@@ -124,6 +124,7 @@ function App() {
   const [isSummarizingCode, setIsSummarizingCode] = useState(false);
   const [showExtensionModal, setShowExtensionModal] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [copiedServerUrl, setCopiedServerUrl] = useState(false);
 
   // Question Notes State
   const [expandedNotesId, setExpandedNotesId] = useState(null);
@@ -542,6 +543,19 @@ function App() {
       setCopiedToken(true);
       setTimeout(() => setCopiedToken(false), 2500);
     }
+  };
+
+  const getCompanionServerUrl = () => {
+    return window.location.origin.includes('localhost')
+      ? 'http://localhost:5000'
+      : window.location.origin;
+  };
+
+  const handleCopyServerUrl = () => {
+    const url = getCompanionServerUrl();
+    navigator.clipboard.writeText(url);
+    setCopiedServerUrl(true);
+    setTimeout(() => setCopiedServerUrl(false), 2500);
   };
 
   // Global Escape key listener to close active modals
@@ -3154,24 +3168,41 @@ function App() {
                 </li>
                 <li className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-indigo-600/20 text-indigo-500 flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">5</span>
-                  <span>Click the extension on any LeetCode/GFG problem page, click <strong>⚙ Config</strong>, and paste your Token below:</span>
+                  <span>Click the extension on any LeetCode/GFG problem page, click <strong>⚙ Config</strong>, and verify these 2 settings:</span>
                 </li>
               </ol>
 
-              {/* 1-Click Token Copy Box */}
-              <div className="p-3 rounded-xl bg-slate-200/50 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] flex items-center justify-between gap-3 mt-2">
-                <div>
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block font-mono">Your Account API Token</span>
-                  <span className="text-xs font-mono text-slate-700 dark:text-slate-300">••••••••••••••••••••••••</span>
+              {/* 1-Click Server URL & Token Copy Boxes */}
+              <div className="space-y-2 mt-3">
+                <div className="p-3 rounded-xl bg-slate-200/50 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] flex items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block font-mono">1. Revalgo Server Target URL</span>
+                    <span className="text-xs font-mono text-indigo-600 dark:text-indigo-400 font-semibold">{getCompanionServerUrl()}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyServerUrl}
+                    className="px-3.5 py-1.5 rounded-lg glass-input text-xs font-mono text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 flex items-center gap-1.5 active:scale-95 transition-all shadow-sm shrink-0"
+                  >
+                    {copiedServerUrl ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedServerUrl ? 'URL Copied!' : 'Copy Server URL'}</span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleCopyToken}
-                  className="px-3.5 py-1.5 rounded-lg glass-input text-xs font-mono text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 flex items-center gap-1.5 active:scale-95 transition-all shadow-sm"
-                >
-                  {copiedToken ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedToken ? 'Token Copied!' : 'Copy Token'}</span>
-                </button>
+
+                <div className="p-3 rounded-xl bg-slate-200/50 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] flex items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block font-mono">2. Your Account API Token</span>
+                    <span className="text-xs font-mono text-slate-700 dark:text-slate-300">••••••••••••••••••••••••</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyToken}
+                    className="px-3.5 py-1.5 rounded-lg glass-input text-xs font-mono text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 flex items-center gap-1.5 active:scale-95 transition-all shadow-sm shrink-0"
+                  >
+                    {copiedToken ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedToken ? 'Token Copied!' : 'Copy Token'}</span>
+                  </button>
+                </div>
               </div>
             </div>
 
