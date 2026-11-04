@@ -1,7 +1,178 @@
 // Revalgo Companion Content Script
 // Extracts problem metadata and solution code directly from LeetCode and GeeksforGeeks tabs
 
-function extractLeetCodeData() {
+function injectPageBridgeIfNeeded() {
+  if (document.getElementById('__revalgo_bridge_script__')) return;
+  try {
+    const script = document.createElement('script');
+    script.id = '__revalgo_bridge_script__';
+    script.src = chrome.runtime.getURL('page-bridge.js');
+    (document.head || document.documentElement).appendChild(script);
+  } catch (_) {}
+}
+
+function extractCodeFromLocalStorage() {
+  try {
+    const slugMatch = window.location.pathname.match(/problems\/([^\/\?#]+)/i);
+    const slug = slugMatch ? slugMatch[1].toLowerCase().replace(/[-_]+/g, '') : '';
+    let bestCode = '';
+    let bestScore = -1;
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      const lowerKey = key.toLowerCase();
+
+      const isProblemKey = slug && lowerKey.replace(/[-_]+/g, '').includes(slug);
+      const isCodeKey = lowerKey.includes('code') || lowerKey.includes('solution') || lowerKey.includes('editor') || lowerKey.includes('user_saved');
+
+      if (!isProblemKey && !isCodeKey) continue;
+
+      const rawVal = localStorage.getItem(key);
+      if (!rawVal || rawVal.length < 25) continue;
+
+      let candidate = rawVal;
+      if (rawVal.trim().startsWith('{') || rawVal.trim().startsWith('"')) {
+        try {
+          const parsed = JSON.parse(rawVal);
+          if (typeof parsed === 'string') {
+            candidate = parsed;
+          } else if (parsed && typeof parsed === 'object') {
+            candidate = parsed.code || parsed.typed_code || parsed.solution || parsed.userCode || parsed.value || '';
+          }
+        } catch (_) {}
+      }
+
+      if (typeof candidate === 'string' && candidate.trim().length > 25) {
+        let score = candidate.length;
+        if (/(class Solution|def |public |function |#include|package )/m.test(candidate)) {
+          score += 25000;
+        }
+        if (isProblemKey) {
+          score += 15000;
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestCode = candidate;
+        }
+      }
+    }
+
+    if (bestCode && bestScore > 10000) {
+      return bestCode;
+    }
+  } catch (_) {}
+  return null;
+}
+
+async function scrapeMonacoWithAutoScroll() {
+  try {
+    const viewLines = Array.from(document.querySelectorAll('.monaco-editor .view-line, .view-lines .view-line'));
+    if (viewLines.length === 0) return '';
+
+    const firstLineEl = viewLines[0];
+    const topPx = parseInt(firstLineEl.style.top || '0', 10);
+
+    // If top line is near 0px, editor is already at top
+    if (topPx <= 25) {
+      return viewLines.map(l => l.innerText.replace(/\u00A0/g, ' ')).join('\n').trim();
+    }
+
+    // Editor is scrolled down! Scroll to top temporarily to render unvirtualized lines 1..N
+    const scrollEl = document.querySelector('.monaco-editor .monaco-scrollable-element, .monaco-editor .overflow-guard');
+    if (scrollEl) {
+      const origScroll = scrollEl.scrollTop;
+      scrollEl.scrollTop = 0;
+      await new Promise(r => setTimeout(r, 60));
+      const topLines = Array.from(document.querySelectorAll('.monaco-editor .view-line, .view-lines .view-line'));
+      const text = topLines.map(l => l.innerText.replace(/\u00A0/g, ' ')).join('\n').trim();
+      scrollEl.scrollTop = origScroll; // restore scroll position
+      if (text.length > 20) return text;
+    }
+
+    return viewLines.map(l => l.innerText.replace(/\u00A0/g, ' ')).join('\n').trim();
+  } catch (_) {
+    return '';
+  }
+}
+
+function requestFullCodeFromPage() {
+  return new Promise((resolve) => {
+    // Check DOM bridge immediately
+    const existingBridge = document.getElementById('__revalgo_code_bridge__');
+    if (existingBridge && existingBridge.value && existingBridge.value.trim().length > 30) {
+      return resolve(existingBridge.value);
+    }
+
+    let resolved = false;
+
+    const cleanup = () => {
+      window.removeEventListener('message', onMessage);
+      document.removeEventListener('REVALGO_RECEIVE_FULL_CODE', onCustomEvent);
+      if (observer) observer.disconnect();
+    };
+
+    const finish = (code) => {
+      if (resolved) return;
+      resolved = true;
+      cleanup();
+      resolve(code || '');
+    };
+
+    const onMessage = (e) => {
+      if (e.data && (e.data.type === 'REVALGO_RECEIVE_FULL_CODE' || e.data.type === 'REVALGO_PONG_CODE')) {
+        if (e.data.code && e.data.code.trim().length > 0) {
+          finish(e.data.code);
+        }
+      }
+    };
+    window.addEventListener('message', onMessage);
+
+    const onCustomEvent = (e) => {
+      const code = e.detail || '';
+      if (code && code.trim().length > 0) {
+        finish(code);
+      }
+    };
+    document.addEventListener('REVALGO_RECEIVE_FULL_CODE', onCustomEvent);
+
+    let observer = null;
+    try {
+      let bridge = document.getElementById('__revalgo_code_bridge__');
+      if (!bridge) {
+        bridge = document.createElement('textarea');
+        bridge.id = '__revalgo_code_bridge__';
+        bridge.style.display = 'none';
+        bridge.setAttribute('aria-hidden', 'true');
+        (document.body || document.documentElement).appendChild(bridge);
+      }
+      observer = new MutationObserver(() => {
+        const b = document.getElementById('__revalgo_code_bridge__');
+        if (b && b.dataset.ready === 'true' && b.value && b.value.trim().length > 0) {
+          finish(b.value);
+        }
+      });
+      observer.observe(bridge, { attributes: true });
+    } catch (_) {}
+
+    injectPageBridgeIfNeeded();
+
+    document.dispatchEvent(new CustomEvent('REVALGO_REQUEST_FULL_CODE'));
+    window.postMessage({ type: 'REVALGO_REQUEST_FULL_CODE' }, '*');
+    window.postMessage({ type: 'REVALGO_PING_CODE' }, '*');
+
+    // 400ms timeout safeguard (resolves instantly upon bridge response)
+    setTimeout(() => {
+      if (!resolved) {
+        const b = document.getElementById('__revalgo_code_bridge__');
+        const code = (b && b.value) ? b.value : '';
+        finish(code);
+      }
+    }, 400);
+  });
+}
+
+async function extractLeetCodeData() {
   const url = window.location.origin + window.location.pathname;
 
   // Extract Title
@@ -35,11 +206,13 @@ function extractLeetCodeData() {
     else if (dText.includes('med')) difficulty = 'Medium';
   }
 
-  // Extract Solution Code from Monaco Editor
-  let code = '';
-  const monacoLines = Array.from(document.querySelectorAll('.monaco-editor .view-line, .view-lines .view-line'));
-  if (monacoLines.length > 0) {
-    code = monacoLines.map(l => l.innerText.replace(/\u00A0/g, ' ')).join('\n').trim();
+  // Extract Solution Code (Main World unvirtualized model first, then localStorage, then DOM fallback)
+  let code = await requestFullCodeFromPage();
+  if (!code || !code.trim()) {
+    code = extractCodeFromLocalStorage() || '';
+  }
+  if (!code || !code.trim()) {
+    code = await scrapeMonacoWithAutoScroll();
   }
 
   // Extract Language
@@ -90,7 +263,7 @@ function detectCodeLanguage(code) {
   return 'cpp';
 }
 
-function extractGFGData() {
+async function extractGFGData() {
   const url = window.location.origin + window.location.pathname;
 
   let title = '';
@@ -199,11 +372,19 @@ function extractGFGData() {
     }
   }
 
-  // Extract Solution Code from Monaco or Ace Editor
-  let code = '';
-  const monacoLines = Array.from(document.querySelectorAll('.ace_layer.ace_text-layer .ace_line, .monaco-editor .view-line, .ace_line, [class*="ace_line"], .code-editor-content pre'));
-  if (monacoLines.length > 0) {
-    code = monacoLines.map(l => l.innerText.replace(/\u00A0/g, ' ')).join('\n').trim();
+  // Extract Solution Code from Page Bridge (Monaco/Ace unvirtualized) or DOM lines
+  let code = await requestFullCodeFromPage();
+  if (!code || !code.trim()) {
+    code = extractCodeFromLocalStorage() || '';
+  }
+  if (!code || !code.trim()) {
+    code = await scrapeMonacoWithAutoScroll();
+  }
+  if (!code || !code.trim()) {
+    const monacoLines = Array.from(document.querySelectorAll('.ace_layer.ace_text-layer .ace_line, .monaco-editor .view-line, .ace_line, [class*="ace_line"], .code-editor-content pre'));
+    if (monacoLines.length > 0) {
+      code = monacoLines.map(l => l.innerText.replace(/\u00A0/g, ' ')).join('\n').trim();
+    }
   }
 
   // Extract or Detect Language
@@ -236,24 +417,31 @@ function extractGFGData() {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'SCRAPE_PROBLEM') {
     const host = window.location.hostname;
-    let data;
+    
+    (async () => {
+      try {
+        let data;
+        if (host.includes('leetcode.com')) {
+          data = await extractLeetCodeData();
+        } else if (host.includes('geeksforgeeks.org')) {
+          data = await extractGFGData();
+        } else {
+          data = {
+            platform: 'generic',
+            title: document.title.trim(),
+            url: window.location.href,
+            difficulty: 'Medium',
+            code: '',
+            language: 'cpp'
+          };
+        }
+        sendResponse(data);
+      } catch (err) {
+        console.error('Error in content script scraping:', err);
+        sendResponse(null);
+      }
+    })();
 
-    if (host.includes('leetcode.com')) {
-      data = extractLeetCodeData();
-    } else if (host.includes('geeksforgeeks.org')) {
-      data = extractGFGData();
-    } else {
-      data = {
-        platform: 'generic',
-        title: document.title.trim(),
-        url: window.location.href,
-        difficulty: 'Medium',
-        code: '',
-        language: 'cpp'
-      };
-    }
-
-    sendResponse(data);
+    return true; // Keep message channel open for async response
   }
-  return true;
 });

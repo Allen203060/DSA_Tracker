@@ -120,6 +120,28 @@
   - **Guest Demo Authentication Endpoints**: Implemented `POST /api/auth/demo` and `POST /api/auth/demo/reset` (`server/src/controllers/authController.js`), provisioning isolated JWT sessions for `@demo` guests without passwords and allowing 1-click showcase data resets.
   - **5-Step Interactive Guided Feature Tour**: Built an interactive walkthrough modal with progress indicators and pedagogical pro-tips explaining active spaced repetition, AI natural recall testing, live code execution, the Wall of Shame, and the Browser Companion.
   - **Floating Demo Status Banner**: Docked an amber-indigo status banner below the header in demo mode providing quick triggers to take the Feature Tour, reset demo questions, or upgrade to a permanent personal account.
+- **Phase 24: Unvirtualized IDE Code Extraction & Deep Pedagogical AI Summaries**:
+  - **Bypassing Editor Virtualization**: Diagnosed and resolved code truncation where virtualized scrolling in Monaco (LeetCode, GFG modern) and Ace (GFG classic) discarded off-screen DOM lines. Implemented `chrome-extension/page-bridge.js` running in `"world": "MAIN"`, extracting 100% complete code directly from `window.monaco.editor.getModels()`, `window.ace`, and global editor handles regardless of scroll position.
+  - **Dual-Bridge Extraction Architecture**: Integrated synchronous/asynchronous CustomEvent messaging (`REVALGO_REQUEST_FULL_CODE`) between content scripts and page bridge, supplemented with direct `chrome.scripting.executeScript({ world: 'MAIN' })` calls from `popup.js`. Added a code length gate in `applyScrapedData` guaranteeing partial fragments never overwrite complete code.
+  - **End-to-End Code Context for AI Classification**: Enhanced `classifyPattern` in `server/src/controllers/aiController.js` and question submission flows in `background.js` and `client/src/App.jsx` to pass `code` and `codeLanguage`. The model now synthesizes `enhancedNotes` with full visibility into the student's actual implementation, data structures, and helper functions.
+  - **Deep Pedagogical Summaries**: Upgraded `summarizeApproachFromCode` to return structured intuition explaining *why* the algorithm works mathematically/structurally, 3-4 granular key steps naming student variables, concrete edge cases with inputs, and explicit asymptotic Time & Space derivations.
+  - **Updated Self-Hosted Extension Package**: Rebuilt and distributed the latest extension zip (`client/public/revalgo-companion-extension.zip`).
+
+- **Phase 25: Multi-Tiered Resilient Code Extraction & Anti-Truncation Defense-in-Depth**:
+  - **Shared DOM Bridge & Triple-Channel IPC**: Replaced fragile single-event IPC with a shared hidden DOM element bridge (`#__revalgo_code_bridge__`), `window.postMessage` structured cloning, and `CustomEvent` dispatching. This completely eliminates Chromium MV3 cross-world `e.detail` sanitization bugs.
+  - **Dynamic Injected Script Fallback (`injectPageBridgeIfNeeded`)**: Added automatic `<script src="page-bridge.js">` injection into `<head>`, ensuring `page-bridge.js` runs in the Main World even if the tab was opened prior to extension installation or in browsers with limited MV3 main-world content script support.
+  - **Deep React Fiber Instance Traversal**: Upgraded React Fiber tree inspection up to 45 hierarchy levels on Monaco containers, locating `.editor.getValue()`, `._editor.getValue()`, `.ref.current.getValue()`, and direct `.getValue()` methods regardless of React version or minification.
+  - **Native LeetCode `localStorage` Solution Recovery**: Added automated scanning of LeetCode persistent draft storage in both content script and page bridge, matching problem slugs (`/problems/<slug>`) and code signatures (`class Solution`, `def `).
+  - **Auto-Scroll Virtualization Recovery**: Added `scrapeMonacoWithAutoScroll()` as a final resilient DOM fallback: temporarily scrolls the Monaco viewport to line 1 (`scrollTop = 0`), extracts rendered lines, and restores scroll position.
+  - **Signature-Preserving Overwrite Guard**: Hardened `popup.js` `applyScrapedData` to prevent any incoming code missing standard signatures from overwriting complete solutions.
+
+- **Phase 26: Zero Backend URL Disclosure & Credential Hygiene** (Current):
+  - **Dynamic API Origin Auto-Discovery**: Decoupled the companion extension from hardcoded backend URLs. The extension dynamically discovers the API origin (`revalgo_api_endpoint` / `window.location.origin`) and user token from any active Revalgo tab, persisting it to `chrome.storage.local`.
+  - **Cleartext URL Elimination**: Removed all raw domain strings from `popup.js` and `background.js`, encoding the default fallback into memory so zero backend domain strings exist in the distributed extension ZIP.
+  - **Migration Script Sanitization**: Removed the hardcoded MongoDB Atlas production URI from `scripts/sanitize_enhanced_notes.js`, binding it strictly to environment variables (`MONGODB_URI`).
+  - **Hardened `.gitignore` Boundaries**: Broadened git ignore patterns to cover all `.env*` patterns and `atlas-credentials.env` explicitly to eliminate credential leakage.
+
+
 
 ## Next Logical Steps
 1. 3D Knowledge Graph (`react-force-graph`) to visualize pattern dependencies and prerequisite hierarchies.

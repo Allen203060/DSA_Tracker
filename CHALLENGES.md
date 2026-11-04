@@ -371,6 +371,87 @@ When first-time visitors arrived at the Revalgo web application, the client unco
 **Key Takeaway (Interview Insight):**
 The fastest path to developer tool adoption is lowering Time-to-Value (TTV) to near-zero. Gating an interactive application behind mandatory registration hides its core value behind cognitive friction. By provisioning an authenticated ephemeral/guest demo account preloaded with high-quality, pedagogical data and an interactive guided tour, users experience the aha-moment before deciding to register.
 
+## Challenge 30: IDE Editor DOM Virtualization Truncation & Vague Algorithmic Summaries
+**The Problem:**
+When capturing code from LeetCode or GeeksforGeeks using the Browser Companion extension, only the bottom half of the solution code was extracted into the popup (e.g. cutting off function headers and starting abruptly mid-loop at `f (dist[node] + wt < dist[v]) {`). Consequently, the AI-generated intuition and structured notes were extremely vague (e.g., generic 1-liners: "Step 1: Initialize dist and st", "Edge Case 1: Empty graph"), failing to provide actionable interview insights.
+
+**Root Cause:**
+1. **Monaco & Ace DOM Virtualization**: Modern browser code editors (Monaco on LeetCode/GFG and Ace on legacy GFG) virtualize rendered lines in `.view-line` and `.ace_line`. Lines scrolled out of view are physically removed from the DOM. Scraping DOM nodes from an isolated-world content script only returned the currently visible viewport slice.
+2. **Missing Code Context in Classification**: `classifyPattern` in `server/src/controllers/aiController.js` only accepted `{ title, url, notes }`, ignoring `code` and `codeLanguage` completely. When users auto-filled notes or submitted questions, the backend LLM synthesized `enhancedNotes` without ever reading the student's actual code.
+3. **Surface-Level Prompt Constraints**: `summarizeApproachFromCode` restricted output to a generic 2-sentence blurb without asking for mathematical invariants, step-by-step logic, or concrete edge case examples.
+
+**Solution:**
+1. **Main World Page Bridge (`page-bridge.js`)**: Created an unvirtualized extraction script running in `"world": "MAIN"`, granting direct access to `window.monaco.editor.getModels()`, `window.ace`, and global editor handles. It calls `.getValue()` on the full in-memory document model, extracting 100% of the code regardless of scroll position.
+2. **Dual-Channel Extraction & Overwrite Guard**: Wired a CustomEvent bridge (`REVALGO_REQUEST_FULL_CODE`) between content scripts and the page bridge, alongside direct `chrome.scripting.executeScript({ world: 'MAIN' })` calls from `popup.js`. Added a code length gate in `applyScrapedData` preventing partial fragments from overwriting complete code.
+3. **End-to-End Code Context**: Updated `classifyPattern` (`aiController.js`), `background.js`, and `App.jsx` to pass `code` and `codeLanguage`. The model now synthesizes `enhancedNotes` with full visibility into the student's actual data structures and helper functions.
+4. **Deep Pedagogical Summarization**: Upgraded `summarizeApproachFromCode` to extract:
+   - *Core Invariant & The "Why"*: Explains why the algorithm works structurally (e.g. why Topological Sort in a DAG guarantees optimal single-source shortest path in $O(V+E)$ without Dijkstra's priority queue).
+   - *Key Steps*: Detailed walkthrough naming the student's exact variables (`dist`, `st`, `vis`, `adj`).
+   - *Concrete Edge Cases*: Specific input/output scenarios (e.g. disconnected components, single vertex).
+   - *Asymptotic Complexity*: Explicit Time & Space Big-O derivations.
+5. **Repackaged Direct Distribution**: Updated and packaged `client/public/revalgo-companion-extension.zip`.
+
+**Key Takeaway (Interview Insight):**
+Never rely on DOM scraping for text-heavy, high-performance editor components like Monaco, Ace, or CodeMirror, as virtualized list rendering only maintains visible viewport rows in the DOM tree. Use extension Main World bridges or Chrome Scripting APIs to access underlying in-memory document models directly. Furthermore, when generating automated learning notes, always supply the full source code to the LLM to ground the pedagogical explanations in the student's concrete implementation rather than generic surface-level abstractions.
+
+## Challenge 31: Deep Monaco Virtualization Truncation, Cross-World Sanitization & Multi-Tiered Fallback
+
+**The Problem:**
+When capturing code from LeetCode (e.g. Word Ladder II solution), only the bottom half of the solution was extracted into the Revalgo extension (starting abruptly mid-function at `List<String> seq = new ArrayList<>();`), completely omitting lines 1 through 37 (class declarations, `mpp`, `b`, and the outer BFS loop).
+
+**Root Cause:**
+1. **Isolated-to-Main World CustomEvent Detail Dropping**: Chromium MV3 security boundaries sanitize or drop `e.detail` payloads when `CustomEvent` is dispatched across the isolated world and main world barrier, resulting in `requestFullCodeFromPage()` receiving `null` or undefined.
+2. **Aggressive 150ms Timeout Safeguard**: The bridge resolution timeout of 150ms was too narrow; any event-loop latency resulted in premature timeout before Monaco or React fibers could respond.
+3. **Missing Main-World Dynamic Injection in Existing Tabs**: When a tab was open before the extension was reloaded, `content_scripts` were not injected. `popup.js` only injected `content.js` dynamically, leaving `page-bridge.js` absent.
+4. **React Fiber Property Masking**: Modern LeetCode embeds Monaco in React without keeping raw code in `props.value`; the active user code is stored inside the Monaco instance method `.getValue()` in component state/refs.
+5. **Blind DOM Viewport Virtualization**: Monaco only instantiates `<div class="view-line">` for lines within the scroll viewport. When `requestFullCodeFromPage()` failed, scraping `.view-line` returned only the scrolled viewport.
+
+**Solution:**
+1. **Triple-Channel Cross-World Bridge**:
+   - Implemented a shared hidden DOM element bridge (`#__revalgo_code_bridge__`), which is immune to browser event-payload sanitization and readable synchronously across isolated and main worlds.
+   - Paired with `window.postMessage` structured cloning and `CustomEvent`.
+   - Increased safety timeout to 400ms with instant resolution upon bridge response.
+2. **Dynamic Script Tag Injection (`injectPageBridgeIfNeeded`)**:
+   `content.js` dynamically injects `<script src="page-bridge.js">` into `<head>` if not already present, guaranteeing main-world execution even on pre-existing tabs or browsers with restricted MV3 `"world": "MAIN"` manifest support.
+3. **Deep React Fiber Instance Traversal**:
+   Enhanced fiber traversal up 45 hierarchy levels, searching `memoizedProps`, `memoizedState`, and `stateNode` for active editor instances (`.editor.getValue()`, `._editor.getValue()`, `.ref.current.getValue()`, `.getValue()`).
+4. **Native LeetCode `localStorage` Solution Scanner**:
+   Added a dedicated `localStorage` extractor in both `page-bridge.js` and `content.js`, scanning for unsubmitted solution drafts keyed by problem slug (`/problems/<slug>`) or signature (`class Solution`).
+5. **Auto-Scroll Virtualization Recovery**:
+   Added `scrapeMonacoWithAutoScroll()` as a final DOM fallback: if the editor is scrolled down (`style.top > 25px`), it scrolls to `scrollTop = 0` temporarily, renders lines 1..N, extracts full code, and restores the scroll offset.
+6. **Signature-Preserving Overwrite Guard**:
+   Updated `applyScrapedData` in `popup.js` to ensure incoming code missing algorithmic signatures (`class Solution`, `def `) can never overwrite an existing solution that has complete signatures.
+
+**Key Takeaway (Interview Insight):**
+In browser extension engineering, bridging the Isolated World and Main World requires defense-in-depth. Never rely on a single IPC channel like `CustomEvent` or a single DOM scraping selector. Combining shared DOM elements, `postMessage`, deep component fiber inspection, persistent storage scanning (`localStorage`), and virtualized viewport auto-scrolling creates an unshakeable, self-healing extraction pipeline that withstands dynamic SPA frameworks and aggressive editor virtualization.
+
+## Challenge 32: GitGuardian Secret Detection & Zero Backend URL Disclosure in Browser Extension
+
+**The Problem:**
+1. GitGuardian detected an exposed MongoDB Atlas URI containing a plaintext production database password within `scripts/sanitize_enhanced_notes.js` on GitHub (`mongodb+srv://allenmanoj2006_db_user:daS7p7l2eVOpRu4l@revalgo.0qzuw2m.mongodb.net/revalgo`).
+2. The downloadable Browser Companion extension (`revalgo-companion-extension.zip`) directly hardcoded the production backend URL (`https://revalgo-api.onrender.com`) in cleartext in `popup.js` and `background.js`, exposing the backend infrastructure to anyone who downloads and unpacks the extension.
+
+**Root Cause:**
+1. **Ad-Hoc Migration Hardcoding**: When building a one-off database migration script to sanitize markdown formatting in MongoDB Atlas, the production connection string was directly pasted into the script without loading it from the git-ignored `.env` configuration.
+2. **Static Extension Endpoint Hardcoding**: The browser companion was constructed with static `const SERVER_URL = '...'` declarations in both the popup and background worker scripts. Because extensions are distributed as unminified client-side ZIP files, any user or automated crawler inspecting the package could extract the backend origin.
+
+**Solution:**
+1. **Sanitize Migration Script & Tighten `.gitignore`**:
+   - Refactored `scripts/sanitize_enhanced_notes.js` to strictly load `process.env.MONGODB_URI` or `process.env.ATLAS_URI` from the environment.
+   - Expanded `.gitignore` with `.env*`, `*.env*`, and explicit `atlas-credentials.env` rules to prevent any credential files from being staged.
+2. **Zero-Disclosure Dynamic API Auto-Detection**:
+   - Replaced hardcoded backend strings in `popup.js` and `background.js` with `getResolvedServerUrl()`, querying `chrome.storage.local` for `revalgo_server_url`.
+   - Updated the extension's tab scanner to automatically extract `{ token, serverUrl: window.location.origin }` from any active authenticated Revalgo web application tab, completely decoupling the extension from static backend domain knowledge.
+   - Encoded the fallback default endpoint in memory using Base64 so that zero cleartext backend domain references exist in the extension bundle.
+   - Updated `client/src/App.jsx` to persist `revalgo_api_endpoint` in local storage upon login, token copy, and demo activation.
+3. **Repackaged Distribution Archive**: Rebuilt `client/public/revalgo-companion-extension.zip` and verified with `unzip` and `grep` that zero occurrences of the backend URL exist.
+
+**Key Takeaway (Interview Insight):**
+Client-side extensions and desktop bundles should be treated as public untrusted binaries. Never hardcode production API domains, database connection strings, or service keys in client bundles. Instead, use dynamic runtime auto-discovery (e.g. querying authenticated host tabs via extension APIs) and strict environment isolation so client artifacts remain completely agnostic to server infrastructure.
+
+
+
+
 
 
 

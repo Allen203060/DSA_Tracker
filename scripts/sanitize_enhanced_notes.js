@@ -57,12 +57,16 @@ async function sanitizeDatabase(uri, label) {
 }
 
 async function run() {
-  // 1. Atlas Production Database
-  const atlasUri = "mongodb+srv://allenmanoj2006_db_user:daS7p7l2eVOpRu4l@revalgo.0qzuw2m.mongodb.net/revalgo";
-  await sanitizeDatabase(atlasUri, 'MongoDB Atlas (Production)');
+  // 1. Atlas Production Database (Loaded safely from git-ignored .env)
+  const atlasUri = process.env.MONGODB_URI || process.env.ATLAS_URI;
+  if (atlasUri) {
+    await sanitizeDatabase(atlasUri, 'MongoDB Atlas (Production)');
+  } else {
+    console.log('ℹ️  No MONGODB_URI / ATLAS_URI found in environment; skipping Atlas sanitization.');
+  }
 
   // 2. Local Development MongoDB
-  const localUri = process.env.MONGO_URI || "mongodb://localhost:27017/dsa_tracker";
+  const localUri = process.env.LOCAL_MONGO_URI || "mongodb://localhost:27017/dsa_tracker";
   await sanitizeDatabase(localUri, 'Local MongoDB');
 
   console.log(`\n✨ All database sanitizations completed!`);

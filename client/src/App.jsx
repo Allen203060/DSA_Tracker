@@ -360,6 +360,7 @@ function App() {
 
     const token = localStorage.getItem('revalgo_token');
     if (token) {
+      localStorage.setItem('revalgo_api_endpoint', window.location.origin);
       axios.get('/api/auth/me')
         .then((res) => {
           setCurrentUser(res.data.user);
@@ -451,6 +452,7 @@ function App() {
       const res = await axios.post('/api/auth/google', { credential: response.credential });
       const { user, token } = res.data;
       localStorage.setItem('revalgo_token', token);
+      localStorage.setItem('revalgo_api_endpoint', window.location.origin);
       localStorage.setItem('revalgo_user', JSON.stringify(user));
       setCurrentUser(user);
       setIsAuthModalOpen(false);
@@ -476,6 +478,7 @@ function App() {
         });
         const { user, token } = res.data;
         localStorage.setItem('revalgo_token', token);
+        localStorage.setItem('revalgo_api_endpoint', window.location.origin);
         localStorage.setItem('revalgo_user', JSON.stringify(user));
         setCurrentUser(user);
         setIsAuthModalOpen(false);
@@ -493,6 +496,7 @@ function App() {
         const { user, token } = res.data;
 
         localStorage.setItem('revalgo_token', token);
+        localStorage.setItem('revalgo_api_endpoint', window.location.origin);
         localStorage.setItem('revalgo_user', JSON.stringify(user));
         setCurrentUser(user);
         setIsAuthModalOpen(false);
@@ -551,6 +555,7 @@ function App() {
       const res = await axios.post('/api/auth/demo');
       const { user, token } = res.data;
       localStorage.setItem('revalgo_token', token);
+      localStorage.setItem('revalgo_api_endpoint', window.location.origin);
       localStorage.setItem('revalgo_user', JSON.stringify(user));
       setCurrentUser(user);
       setShowVisitorModal(false);
@@ -993,7 +998,16 @@ function App() {
         code,
         codeLanguage
       });
-      const summaryText = `${res.data.intuition}\n\n**Complexity:** ${res.data.complexity}`;
+      let summaryText = res.data.intuition || '';
+      if (Array.isArray(res.data.keySteps) && res.data.keySteps.length > 0) {
+        summaryText += '\n\n**Key Steps:**\n' + res.data.keySteps.map((s, i) => `${i + 1}. ${s}`).join('\n');
+      }
+      if (Array.isArray(res.data.edgeCases) && res.data.edgeCases.length > 0) {
+        summaryText += '\n\n**Edge Cases:**\n' + res.data.edgeCases.map(e => `- ${e}`).join('\n');
+      }
+      if (res.data.complexity) {
+        summaryText += `\n\n**Complexity:** ${res.data.complexity}`;
+      }
       setNotes(summaryText);
     } catch (err) {
       console.error('Failed to summarize code:', err);
@@ -1010,7 +1024,7 @@ function App() {
 
     try {
       const validTestCases = testCases.filter(tc => tc.input.trim() || tc.expectedOutput.trim());
-      const aiResponse = await axios.post('/api/ai/classify', { title, url, notes });
+      const aiResponse = await axios.post('/api/ai/classify', { title, url, notes, code, codeLanguage });
       const { patterns: extractedPatterns, enhancedNotes, topic, subtopic, difficulty: aiDifficulty } = aiResponse.data; 
 
       await axios.post('/api/questions', {
@@ -3309,7 +3323,7 @@ function App() {
             <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-500/15 via-purple-500/10 to-emerald-500/15 border border-indigo-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 mb-5">
               <div>
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-100 block">Direct Download Package</span>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">revalgo-companion-extension.zip (8.7 KB)</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">revalgo-companion-extension.zip (17 KB)</span>
               </div>
               <a
                 href="/revalgo-companion-extension.zip"

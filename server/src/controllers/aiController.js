@@ -5,61 +5,67 @@ import { cleanMarkdownNotes } from "../utils/cleanMarkdown.js";
 const DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct";
 
 export const classifyPattern = async (req, res) => {
-  const { title, url, notes } = req.body;
+  const { title, url, notes, code, codeLanguage } = req.body;
 
   try {
     const patternSchema = z.object({
       topic: z.string().describe("The primary Core Data Structure or Topic category (e.g. 'Stack', 'Queue', 'Array & Two Pointers', 'Tree & Graph', 'Dynamic Programming', 'Heap / Priority Queue', 'String', 'Linked List'). Keep Stacks and Queues strictly distinct!"),
-      subtopic: z.string().describe("The specific subtopic / pattern technique (e.g. 'Monotonic Stack', 'Index / Width Calculation', 'Monotonic Queue', 'Sliding Window', 'Parentheses Matching')."),
+      subtopic: z.string().describe("The specific subtopic / pattern technique (e.g. 'Monotonic Stack', 'Index / Width Calculation', 'Topological Sort', 'Dijkstra', 'Monotonic Queue', 'Sliding Window', 'Parentheses Matching')."),
       difficulty: z.enum(['Easy', 'Medium', 'Hard']).describe("The estimated LeetCode problem difficulty level based on problem complexity and notes."),
-      patterns: z.array(z.string()).describe("A list of algorithmic patterns (e.g., 'Monotonic Stack', 'Sliding Window') identified from the notes."),
-      enhancedNotes: z.string().describe("Clean, highly readable, structured revision notes in rich Markdown with headers (###), bold text, bullet points (-), and inline code backticks."),
+      patterns: z.array(z.string()).describe("A list of algorithmic patterns (e.g., 'Monotonic Stack', 'Sliding Window', 'Topological Sort') identified from the notes or code."),
+      enhancedNotes: z.string().describe("Clean, highly readable, deeply pedagogical revision notes in rich Markdown with headers (###), bold text, bullet points (-), and inline code backticks."),
     });
 
     const modelName = process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
     const llm = new ChatOpenRouter({
       model: modelName, 
       temperature: 0,
-      maxTokens: 2000, 
+      maxTokens: 2200, 
     }).withStructuredOutput(patternSchema);
 
     const prompt = `
-      You are an expert algorithms instructor and code reviewer.
-      Given the following problem title, optional problem URL, and a student's raw notes:
+      You are an expert algorithms instructor and senior code reviewer conducting an in-depth pedagogical review.
       
-      Problem Title: ${title}
+      Problem Title: ${title || 'Algorithmic Problem'}
       ${url ? `Problem Link: ${url}` : ''}
-      Student Raw Notes: ${notes}
+      Student Raw Notes / Intent: ${notes || 'No raw notes provided'}
+      ${code && code.trim() ? `Student Solution Code (${codeLanguage || 'cpp'}):\n\`\`\`${codeLanguage || 'cpp'}\n${code}\n\`\`\`` : ''}
 
       CRITICAL CLASSIFICATION RULE (STUDENT APPROACH IS THE SOURCE OF TRUTH):
-      - You MUST classify the 'topic', 'subtopic', and 'patterns' based STRICTLY on the specific algorithm/technique described in the "Student Raw Notes", NOT based on general LeetCode default tags!
-      - Example: If a problem like "Maximum Width Ramp" has multiple known solutions, but the student's notes explicitly describe using a Monotonic Stack (e.g., pushing decreasing indices), you MUST classify Topic = "Stack" and Subtopic = "Monotonic Stack" (or "Index / Width Calculation").
+      - You MUST classify the 'topic', 'subtopic', and 'patterns' based STRICTLY on the specific algorithm/technique in the student's solution or notes, NOT generic LeetCode default tags!
       - Keep 'Stack' and 'Queue' strictly SEPARATE as main topics! Never group Stack and Queue together.
       - Examples of Stack Subtopics: 'Monotonic Stack', 'Index / Width Calculation', 'Parentheses Matching', 'Expression Evaluation'.
       - Examples of Queue Subtopics: 'Monotonic Queue (Sliding Window Max)', 'BFS Level Order Traversal', 'Circular Queue'.
-      - Other main topics include 'Array & Two Pointers', 'Tree & Graph', 'Dynamic Programming', 'Heap / Priority Queue', etc.
+      - Graph Subtopics: 'Topological Sort (Kahn / DFS)', 'Dijkstra Shortest Path', 'Disjoint Set Union (DSU)', 'Bipartite Graph', etc.
 
-      CRITICAL ENHANCEMENT RULE (PROPER MARKDOWN STRUCTURE):
-      - enhancedNotes MUST BE a refined, polished, and beautifully structured version of THE STUDENT'S EXPLICIT APPROACH formatted in clean Markdown.
-      - DO NOT substitute or introduce a different solution/algorithm that the student did not write about.
-      - Use real newline characters. Do NOT output escaped literal '\\n' characters or literal '\\uXXXX' sequences.
-      - Format enhancedNotes strictly using the following Markdown sections:
+      CRITICAL ENHANCEMENT RULES (NO VAGUE/SURFACE-LEVEL BULLET POINTS):
+      - enhancedNotes MUST be a deeply insightful, crystal-clear, pedagogical breakdown of the student's exact solution.
+      - Never produce vague 1-sentence summaries like "Step 1: Initialize dist and st". Always explain WHAT is initialized, WHY, and WHAT invariant it maintains!
+      - If the student provided code, explicitly reference their exact variable names, data structures, and helper functions (e.g. \`topoSort\`, \`dist\`, \`vis\`, \`adj\`, \`st\`) in the explanation!
+      - Format inline code identifiers in backticks (e.g. \`dist[node] + wt < dist[v]\`) INSIDE sentences without breaking them onto separate lines.
+      - Format enhancedNotes strictly using the following 4 Markdown sections:
 
         ### 💡 Core Intuition
-        (Explain the student's aha-moment and core approach in clear, concise language)
+        Explain the foundational mathematical or structural insight that makes this solution work.
+        - Why is this algorithm chosen over alternatives? (e.g. Why Topological Sort for DAG Shortest Path instead of Dijkstra? Because in a DAG with no cycles, topological ordering guarantees all incoming paths to any node are fully resolved before relaxing its outgoing edges, achieving linear O(V + E) runtime).
+        - State the core recurrence / invariant clearly (e.g. \`dist[v] = min(dist[v], dist[u] + weight)\`).
 
         ### 🛠️ Algorithm & Key Steps
-        - **Step 1:** (First step / initialization)
-        - **Step 2:** (Main loop / stack logic / recursion)
-        - **Step 3:** (Final condition / return value)
+        Provide a detailed, step-by-step walkthrough referencing the student's exact implementation:
+        - **Step 1: Graph Representation & Setup:** Explain how the adjacency list, visited tracking, and distance containers are initialized (e.g. initializing \`dist\` array with infinity \`INF\`, \`dist[src] = 0\`).
+        - **Step 2: Core Algorithmic Mechanics:** Step-by-step trace of the main phase (e.g. DFS post-order stack pushing for topological order, then popping nodes sequentially).
+        - **Step 3: State Transition / Relaxation:** How neighbors are processed and updated with the relaxation condition.
+        - **Step 4: Result Formatting & Unreachability:** How final values are constructed (e.g. converting remaining \`INF\` entries to \`-1\` for unreachable vertices).
 
         ### ⚠️ Edge Cases & Boundary Conditions
-        - **Edge Case 1:** (e.g. Empty array / single element)
-        - **Edge Case 2:** (e.g. Duplicate elements / negative numbers)
+        Provide CONCRETE scenarios with specific input/output examples:
+        - **Disconnected / Unreachable Vertices:** (e.g. Vertices with no path from source must maintain \`INF\` and output \`-1\`).
+        - **Boundary Graph Shapes:** (e.g. Linear chain graphs, single isolated vertex, or source vertex with no outgoing edges).
+        - **Multiple / Zero Weights:** (e.g. Zero-weight edges, duplicate edges between vertex pairs).
 
         ### ⏱️ Complexity Analysis
-        - **Time Complexity:** O(...) - (Brief explanation)
-        - **Space Complexity:** O(...) - (Brief explanation)
+        - **Time Complexity:** O(...) - Detailed derivation (e.g. O(V + E) because DFS topological sort visits each vertex and edge once, and relaxing all outgoing edges visits each edge once).
+        - **Space Complexity:** O(...) - Detailed derivation (e.g. O(V + E) auxiliary space for adjacency list \`adj\`, visited array \`vis\`, topological stack \`st\`, and recursion call stack).
     `;
 
     const response = await llm.invoke([{ role: "user", content: prompt }]);
@@ -236,20 +242,22 @@ export const summarizeApproachFromCode = async (req, res) => {
 
   try {
     const summarySchema = z.object({
-      intuition: z.string().describe("A concise 2-3 sentence conversational intuition note capturing the student's exact algorithmic technique, naming their specific variables and data structures."),
-      complexity: z.string().describe("Estimated Time and Space complexity (e.g. 'O(N) Time, O(N) Space').")
+      intuition: z.string().describe("A deep, crystal-clear explanation of the core algorithmic intuition and invariant: why this specific approach works, explicitly naming the student's exact variables (e.g. 'st', 'dist', 'adj', 'vis')."),
+      keySteps: z.array(z.string()).describe("3-4 clear, granular step-by-step points explaining the execution flow and mechanics from the student's code."),
+      edgeCases: z.array(z.string()).describe("2-3 concrete edge cases with specific inputs (e.g. disconnected nodes, empty graph, single node) handled or needed."),
+      complexity: z.string().describe("Precise Time and Space complexity with brief derivation (e.g. 'O(V + E) Time (DFS topological sort + linear edge relaxations), O(V + E) Space (adjacency list and stack)').")
     });
 
     const modelName = process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
     const llm = new ChatOpenRouter({
       model: modelName,
       temperature: 0,
-      maxTokens: 600,
+      maxTokens: 1200,
     }).withStructuredOutput(summarySchema);
 
     const prompt = `
-      You are an expert DSA coach and peer tutor.
-      A student just solved a problem and pasted their personal solution code below:
+      You are an expert algorithms instructor and senior code reviewer.
+      A student just solved an algorithmic problem and submitted their personal implementation below:
 
       Problem Title: ${title || 'Algorithmic Problem'}
       Language: ${codeLanguage || 'cpp'}
@@ -260,12 +268,15 @@ export const summarizeApproachFromCode = async (req, res) => {
       \`\`\`
 
       TASK:
-      Generate a brief, high-retention intuition summary based STRICTLY on the student's personal code.
-      1. Mention their specific variable names, helper data structures, or pointers (e.g., "We maintain a monotonic decreasing stack \`st\` of indices...").
-      2. Explain the core aha-moment / invariant in 2 concise sentences.
-      3. State the Time and Space complexity.
+      Generate a thorough, crystal-clear, high-retention algorithmic summary strictly based on the student's code.
       
-      Keep it personal and punchy so when the student reviews this in 2 weeks, they instantly remember THEIR thought process.
+      CRITICAL INSTRUCTIONS:
+      1. intuition: Explain the foundational "Aha!" insight and WHY the algorithm works. Reference the student's specific variable names (e.g. \`st\`, \`dist\`, \`vis\`, \`adj\`).
+         - Example: Do not just say "Uses topoSort and dist". Explain why Topological Sort is used for DAG Shortest Path (because in a DAG with no cycles, topological order guarantees all incoming paths to any node are evaluated before we relax its outgoing edges, achieving linear O(V + E) time without Dijkstra's priority queue).
+         - Include the exact recurrence/invariant (e.g. \`dist[v] = min(dist[v], dist[u] + wt)\`).
+      2. keySteps: Provide 3-4 granular, concrete steps explaining what the code actually does (e.g. Step 1: Build weighted adjacency list; Step 2: DFS topological sort pushing to stack; Step 3: Pop from stack and relax edges; Step 4: Convert unreachable INF entries to -1).
+      3. edgeCases: 2-3 specific edge cases with concrete inputs (e.g. disconnected components returning -1, single vertex).
+      4. complexity: Explicit Big-O Time & Space complexity with mathematical justification.
     `;
 
     const response = await llm.invoke([{ role: "user", content: prompt }]);

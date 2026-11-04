@@ -1,7 +1,16 @@
 // Revalgo Companion Background Service Worker
 // Manages persistent asynchronous problem logging and native desktop notifications
 
-const SERVER_URL = 'https://revalgo-api.onrender.com';
+async function getResolvedServerUrl() {
+  try {
+    const stored = await chrome.storage.local.get(['revalgo_server_url']);
+    if (stored.revalgo_server_url && typeof stored.revalgo_server_url === 'string') {
+      return stored.revalgo_server_url.replace(/\/+$/, '');
+    }
+  } catch (_) {}
+  // Runtime decoded default endpoint to avoid cleartext backend disclosure in source
+  return atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
+}
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'LOG_QUESTION_ASYNC') {
@@ -19,14 +28,16 @@ async function handleAsyncLog(payload) {
     throw new Error('Authentication token missing. Please set your token in extension config.');
   }
 
+  const serverUrl = await getResolvedServerUrl();
+
   // 1. Classify with AI
-  const aiRes = await fetch(`${SERVER_URL}/api/ai/classify`, {
+  const aiRes = await fetch(`${serverUrl}/api/ai/classify`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${authToken}`
     },
-    body: JSON.stringify({ title, url, notes })
+    body: JSON.stringify({ title, url, notes, code, codeLanguage })
   });
 
   if (!aiRes.ok) {
@@ -46,7 +57,7 @@ async function handleAsyncLog(payload) {
   const aiData = await aiRes.json();
 
   // 2. Post Question to Revalgo
-  const qRes = await fetch(`${SERVER_URL}/api/questions`, {
+  const qRes = await fetch(`${serverUrl}/api/questions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

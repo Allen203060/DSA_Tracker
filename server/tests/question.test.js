@@ -232,5 +232,19 @@ describe('Question API Endpoints & Multi-User Authentication', () => {
     expect(sampleDay).toHaveProperty('shameLevel');
     expect(sampleDay).toHaveProperty('status');
   });
+
+  it('should validate inputs for /api/ai/summarize-code', async () => {
+    // Unauthenticated
+    const unauthRes = await request(app).post('/api/ai/summarize-code').send({ code: '' });
+    expect(unauthRes.status).toBe(401);
+
+    // Authenticated but empty code
+    const emptyRes = await request(app)
+      .post('/api/ai/summarize-code')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ code: '' });
+    expect(emptyRes.status).toBe(400);
+    expect(emptyRes.body.error).toContain('Please provide your solution code');
+  });
 });
 

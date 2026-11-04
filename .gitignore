@@ -24,6 +24,10 @@ dist-ssr
 *.sw?
 
 *.env
+.env*
+*.env*
+atlas-credentials.env
+credentials*.env
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
