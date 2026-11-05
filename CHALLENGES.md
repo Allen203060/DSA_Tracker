@@ -425,29 +425,45 @@ When capturing code from LeetCode (e.g. Word Ladder II solution), only the botto
 **Key Takeaway (Interview Insight):**
 In browser extension engineering, bridging the Isolated World and Main World requires defense-in-depth. Never rely on a single IPC channel like `CustomEvent` or a single DOM scraping selector. Combining shared DOM elements, `postMessage`, deep component fiber inspection, persistent storage scanning (`localStorage`), and virtualized viewport auto-scrolling creates an unshakeable, self-healing extraction pipeline that withstands dynamic SPA frameworks and aggressive editor virtualization.
 
-## Challenge 32: GitGuardian Secret Detection & Zero Backend URL Disclosure in Browser Extension
+## Challenge 33: Extension Popup Blank Lifecycle Race Condition & Missing Permissions
 
 **The Problem:**
-1. GitGuardian detected an exposed MongoDB Atlas URI containing a plaintext production database password within `scripts/sanitize_enhanced_notes.js` on GitHub (`mongodb+srv://allenmanoj2006_db_user:daS7p7l2eVOpRu4l@revalgo.0qzuw2m.mongodb.net/revalgo`).
-2. The downloadable Browser Companion extension (`revalgo-companion-extension.zip`) directly hardcoded the production backend URL (`https://revalgo-api.onrender.com`) in cleartext in `popup.js` and `background.js`, exposing the backend infrastructure to anyone who downloads and unpacks the extension.
+When clicking the Revalgo Companion extension action icon while viewing a problem on LeetCode (e.g. `1091. Shortest Path in Binary Matrix`), the popup opened with all fields completely blank:
+1. `Problem Title...` and `Problem URL...` remained in their placeholder state.
+2. `codeTextarea` was empty.
+3. Language badge defaulted to "C++" instead of "Java".
+4. Settings panel and status messages remained invisible.
+5. In essence, not a single line of active tab problem scraping or code extraction executed.
 
 **Root Cause:**
-1. **Ad-Hoc Migration Hardcoding**: When building a one-off database migration script to sanitize markdown formatting in MongoDB Atlas, the production connection string was directly pasted into the script without loading it from the git-ignored `.env` configuration.
-2. **Static Extension Endpoint Hardcoding**: The browser companion was constructed with static `const SERVER_URL = '...'` declarations in both the popup and background worker scripts. Because extensions are distributed as unminified client-side ZIP files, any user or automated crawler inspecting the package could extract the backend origin.
+1. **`DOMContentLoaded` Lifecycle Race Condition**: In `popup.html`, `<script src="popup.js"></script>` is located at the very end of `<body>`. Because the local popup HTML is tiny (<270 lines) and served directly from disk, Chromium completes document parsing synchronously before `popup.js` executes. By the time `popup.js` attached `document.addEventListener('DOMContentLoaded', ...)`, `document.readyState` was already `'interactive'` or `'complete'`, meaning `DOMContentLoaded` had already fired. The listener was dead on arrival and never executed.
+2. **Missing `"tabs"` Permission in `manifest.json`**: `manifest.json` only declared `"activeTab"`. Under Chromium Manifest V3, `chrome.tabs.query({})` without the `"tabs"` permission returns Tab objects with `url: undefined` and `title: undefined` for non-active tabs and cross-origin tabs, causing `fallbackParseFromTab(tab)` (`if (!tab || !tab.url) return;`) to immediately abort.
+3. **Blocking Multi-Tab Query Loop in Initializer**: Prior to scraping the active tab, `popup.js` executed a sequential `for (const t of candidateTabs)` loop attempting to auto-detect tokens across all open browser tabs (13+ tabs in typical developer sessions). Sequential `executeScript` calls across cross-origin tabs blocked or delayed active tab scraping by multiple seconds.
+4. **Restricted `web_accessible_resources` Matches**: `page-bridge.js` was registered with `"*://*.leetcode.com/*"` but omitted `"*://leetcode.com/*"`. URLs without subdomains (e.g. `https://leetcode.com/...`) were rejected by Chromium's resource loader when dynamically injected.
+5. **False-Positive C++ Language Classification**: `detectCodeLanguage` matched any code containing `class Solution` as C++, causing Java solutions (which also begin with `class Solution {`) to default to C++.
 
 **Solution:**
-1. **Sanitize Migration Script & Tighten `.gitignore`**:
-   - Refactored `scripts/sanitize_enhanced_notes.js` to strictly load `process.env.MONGODB_URI` or `process.env.ATLAS_URI` from the environment.
-   - Expanded `.gitignore` with `.env*`, `*.env*`, and explicit `atlas-credentials.env` rules to prevent any credential files from being staged.
-2. **Zero-Disclosure Dynamic API Auto-Detection**:
-   - Replaced hardcoded backend strings in `popup.js` and `background.js` with `getResolvedServerUrl()`, querying `chrome.storage.local` for `revalgo_server_url`.
-   - Updated the extension's tab scanner to automatically extract `{ token, serverUrl: window.location.origin }` from any active authenticated Revalgo web application tab, completely decoupling the extension from static backend domain knowledge.
-   - Encoded the fallback default endpoint in memory using Base64 so that zero cleartext backend domain references exist in the extension bundle.
-   - Updated `client/src/App.jsx` to persist `revalgo_api_endpoint` in local storage upon login, token copy, and demo activation.
-3. **Repackaged Distribution Archive**: Rebuilt `client/public/revalgo-companion-extension.zip` and verified with `unzip` and `grep` that zero occurrences of the backend URL exist.
+1. **Lifecycle Guard (`document.readyState`)**:
+   Replaced the blind `DOMContentLoaded` event listener with a readyState check:
+   ```javascript
+   if (document.readyState === 'loading') {
+     document.addEventListener('DOMContentLoaded', initPopup);
+   } else {
+     initPopup();
+   }
+   ```
+2. **Added `"tabs"` Permission & Expanded `web_accessible_resources`**:
+   Added `"tabs"` to `manifest.json` `permissions` and added `*://leetcode.com/*`, `*://geeksforgeeks.org/*`, `http://*/*`, and `https://*/*` to `web_accessible_resources`.
+3. **Direct Active-Tab-First In-Page Extractor**:
+   Prioritized immediate active tab scraping on popup open. Executed a comprehensive `inPageScrape` function via `chrome.scripting.executeScript` (`world: 'MAIN'` with isolated fallback) that extracts `title`, `url`, `difficulty`, `language`, and `code` (Monaco models, React fibers, Ace, CodeMirror, and view lines) in a single synchronous 50ms pass without depending on content script readiness.
+4. **Non-Blocking Background Token Detection**:
+   Decoupled multi-tab token discovery so it runs asynchronously in the background without blocking active tab scraping. Added domain filtering (`isRevalgoCandidate`) to only probe relevant tabs.
+5. **Accurate Language Regex**:
+   Updated regex pattern matching to accurately distinguish Java signatures (`public int`, `class Node`, `Queue<`, `new int[]`) from C++ signatures (`class Solution\s*\{\s*public:`, `#include`, `vector<`).
 
 **Key Takeaway (Interview Insight):**
-Client-side extensions and desktop bundles should be treated as public untrusted binaries. Never hardcode production API domains, database connection strings, or service keys in client bundles. Instead, use dynamic runtime auto-discovery (e.g. querying authenticated host tabs via extension APIs) and strict environment isolation so client artifacts remain completely agnostic to server infrastructure.
+In browser extension popup scripts, never assume `DOMContentLoaded` will fire in the future. Local extension documents often finish parsing before scripts execute; always check `document.readyState === 'loading'` before attaching listeners. Furthermore, design popup data extraction around active-tab priority: query the active tab and extract all fields directly in the first tick before running secondary discovery tasks.
+
 
 
 

@@ -255,11 +255,15 @@ function cleanHtmlEntities(str) {
 
 function detectCodeLanguage(code) {
   if (!code) return 'cpp';
-  if (/^\s*(#include|using namespace|std::|vector<|int main|class Solution)/m.test(code)) return 'cpp';
+  if (/^\s*(#include|using namespace|std::|vector<|int main|class Solution\s*\{\s*public:)/m.test(code)) return 'cpp';
   if (/^\s*(def |import |from |class Solution:|print\(|self\.)/m.test(code)) return 'python';
-  if (/^\s*(public class|private |protected |System\.out|ArrayList<|HashMap<)/m.test(code)) return 'java';
+  if (/^\s*(public class|private |protected |System\.out|ArrayList<|HashMap<|Queue<|class Solution\s*\{[\s\S]*?(?:public\s+(?:int|void|boolean|String|List|long)|class\s+Node))/m.test(code) || /\b(new int\[|new String\[|Arrays\.fill|LinkedList<|ArrayList<|HashMap<|HashSet<)/m.test(code)) return 'java';
   if (/^\s*(function |const |let |var |console\.log|module\.exports)/m.test(code)) return 'javascript';
   if (/^\s*(package |func |fmt\.)/m.test(code)) return 'go';
+  if (/class Solution/m.test(code)) {
+    if (/\b(public\s+[a-zA-Z<>]+|new\s+[A-Z]\w+|System\.out)\b/.test(code)) return 'java';
+    return 'cpp';
+  }
   return 'cpp';
 }
 

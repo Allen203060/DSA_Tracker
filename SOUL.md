@@ -135,11 +135,18 @@
   - **Auto-Scroll Virtualization Recovery**: Added `scrapeMonacoWithAutoScroll()` as a final resilient DOM fallback: temporarily scrolls the Monaco viewport to line 1 (`scrollTop = 0`), extracts rendered lines, and restores scroll position.
   - **Signature-Preserving Overwrite Guard**: Hardened `popup.js` `applyScrapedData` to prevent any incoming code missing standard signatures from overwriting complete solutions.
 
-- **Phase 26: Zero Backend URL Disclosure & Credential Hygiene** (Current):
+- **Phase 26: Zero Backend URL Disclosure & Credential Hygiene**:
   - **Dynamic API Origin Auto-Discovery**: Decoupled the companion extension from hardcoded backend URLs. The extension dynamically discovers the API origin (`revalgo_api_endpoint` / `window.location.origin`) and user token from any active Revalgo tab, persisting it to `chrome.storage.local`.
   - **Cleartext URL Elimination**: Removed all raw domain strings from `popup.js` and `background.js`, encoding the default fallback into memory so zero backend domain strings exist in the distributed extension ZIP.
   - **Migration Script Sanitization**: Removed the hardcoded MongoDB Atlas production URI from `scripts/sanitize_enhanced_notes.js`, binding it strictly to environment variables (`MONGODB_URI`).
   - **Hardened `.gitignore` Boundaries**: Broadened git ignore patterns to cover all `.env*` patterns and `atlas-credentials.env` explicitly to eliminate credential leakage.
+
+- **Phase 27: Extension Lifecycle Resilience, Active-Tab Priority & Permission Hardening** (Current):
+  - **`DOMContentLoaded` Lifecycle Race Condition Remediation**: Eliminated dead-on-arrival event listeners in `popup.js` by checking `document.readyState === 'loading'`. Extension popups now run `initPopup()` immediately if parsing finished before script execution.
+  - **Active-Tab-First In-Page Extraction**: Refactored the popup startup sequence to prioritize active tab problem scraping instantly upon opening. Executing a comprehensive `inPageScrape` function via `chrome.scripting.executeScript` (`world: 'MAIN'` with isolated fallback) extracts `title`, `url`, `difficulty`, `language`, and `code` in <50ms without waiting for content script handshake or background tab queries.
+  - **Non-Blocking Background Token Discovery**: Decoupled multi-tab token discovery so it executes asynchronously in the background with host filtering (`isRevalgoCandidate`), eliminating 4-second startup freezes across multi-tab browser sessions.
+  - **Manifest MV3 Permissions & Web Accessible Resources**: Added `"tabs"` to `manifest.json` `permissions` (enabling accurate `tab.url` and `tab.title` reading) and added `*://leetcode.com/*` and `*://geeksforgeeks.org/*` to `web_accessible_resources`.
+  - **Language Detection Precision**: Updated syntax patterns to cleanly differentiate Java solutions from C++ solutions, preventing Java code (`class Solution { class Node ... }`) from erroneously defaulting to C++.
 
 
 
