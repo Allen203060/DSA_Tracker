@@ -464,6 +464,31 @@ When clicking the Revalgo Companion extension action icon while viewing a proble
 **Key Takeaway (Interview Insight):**
 In browser extension popup scripts, never assume `DOMContentLoaded` will fire in the future. Local extension documents often finish parsing before scripts execute; always check `document.readyState === 'loading'` before attaching listeners. Furthermore, design popup data extraction around active-tab priority: query the active tab and extract all fields directly in the first tick before running secondary discovery tasks.
 
+## Challenge 34: Extension AI Summary 404 & Localhost vs Dormant Cloud Auto-Healing
+
+**The Problem:**
+When clicking "✨ Auto-Fill from Code" inside the Revalgo Companion extension, the popup displayed `AI Summary Error: 404`. The user asked if this indicated that their AI quota was exhausted.
+
+**Root Cause:**
+1. **Misinterpreted Status Code**: HTTP 404 represents `Not Found` (the destination server or endpoint route does not exist), NOT an exhausted AI quota (which returns HTTP 429 `Too Many Requests` or HTTP 402/400 `Insufficient Credits`).
+2. **Dormant Cloud Endpoint Fallback**: `getResolvedServerUrl()` defaulted to the encoded production Render URL (`https://revalgo-api.onrender.com`), which returned HTTP 404 because the Render service was dormant/unreachable.
+3. **Storage Disconnect During Local Testing**: When developing locally, the backend runs on `http://localhost:5000` (and frontend on `http://localhost:5173`). If `revalgo_server_url` was missing from `chrome.storage.local` or pointing to the dormant cloud URL, all API calls were routed to the 404 endpoint.
+4. **Token-Gated Tab Synchronization**: `detectTokenFromOpenTabs()` was previously skipped if `token` already existed in local storage (`if (!token)`), preventing open local web app tabs from updating `revalgo_server_url`.
+5. **Missing Server Endpoint UI Controls**: The `⚙ Config` panel only contained a token input and lacked any way for the user to view or change the API target server.
+
+**Solution:**
+1. **Zero-Latency Localhost Auto-Healing**:
+   Updated `getResolvedServerUrl()` in both `popup.js` and `background.js` to probe `http://localhost:5000/api/health` with a 250ms AbortController timeout. If local dev server is active, it automatically sets `revalgo_server_url: 'http://localhost:5000'` and routes traffic locally, bypassing the dormant cloud URL.
+2. **Vite Dev Server Proxy Fallback**:
+   Added a secondary probe to `http://localhost:5173/api/health` (which proxies to port 5000 via Vite's proxy configuration).
+3. **Always-On Tab Synchronization**:
+   Removed the `if (!token)` gate so that whenever a Revalgo tab is open (`localhost` or cloud), `revalgo_server_url` and `token` are automatically synchronized in the background.
+4. **Server Endpoint Configuration UI**:
+   Added a Server Endpoint input with 1-click preset buttons (`[ 💻 Localhost (5000) ]` and `[ 🌐 Cloud Server ]`) inside the `⚙ Config` drawer in `popup.html`, giving full control and visibility without hardcoding cleartext URLs in source.
+
+**Key Takeaway (Interview Insight):**
+HTTP 404 is a routing/endpoint failure, never a quota limit. In multi-environment companion extensions (local dev vs cloud deployment), implement an auto-healing resolution pipeline: probe local health endpoints first before falling back to cloud, continuously synchronize API targets from open web tabs, and provide explicit UI presets in the configuration panel.
+
 
 
 

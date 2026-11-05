@@ -9,9 +9,37 @@ async function getResolvedServerUrl() {
   try {
     const stored = await chrome.storage.local.get(['revalgo_server_url']);
     if (stored.revalgo_server_url && typeof stored.revalgo_server_url === 'string') {
-      return stored.revalgo_server_url.replace(/\/+$/, '');
+      const url = stored.revalgo_server_url.replace(/\/+$/, '');
+      if (!url.includes('revalgo-api.onrender.com')) {
+        return url;
+      }
     }
   } catch (_) {}
+
+  // Auto-heal: verify if local backend on port 5000 is active (sub-millisecond local check)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 250);
+    const localRes = await fetch('http://localhost:5000/api/health', { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (localRes.ok) {
+      await chrome.storage.local.set({ revalgo_server_url: 'http://localhost:5000' });
+      return 'http://localhost:5000';
+    }
+  } catch (_) {}
+
+  // Auto-heal: check if local Vite dev server (port 5173) is active
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 250);
+    const viteRes = await fetch('http://localhost:5173/api/health', { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (viteRes.ok) {
+      await chrome.storage.local.set({ revalgo_server_url: 'http://localhost:5173' });
+      return 'http://localhost:5173';
+    }
+  } catch (_) {}
+
   // Runtime decoded default endpoint to avoid cleartext backend disclosure in source
   return atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
 }
@@ -34,6 +62,9 @@ async function initPopup() {
   const toggleSettingsBtn = document.getElementById('toggleSettingsBtn');
   const settingsPanel = document.getElementById('settingsPanel');
   const tokenInput = document.getElementById('tokenInput');
+  const serverUrlInput = document.getElementById('serverUrlInput');
+  const presetLocalBtn = document.getElementById('presetLocalBtn');
+  const presetCloudBtn = document.getElementById('presetCloudBtn');
   const saveSettingsBtn = document.getElementById('saveSettingsBtn');
 
   const titleInput = document.getElementById('titleInput');
@@ -115,10 +146,14 @@ async function initPopup() {
             func: () => {
               try {
                 const tok = localStorage.getItem('revalgo_token');
-                if (tok) {
+                let sUrl = localStorage.getItem('revalgo_api_endpoint');
+                if (!sUrl && window.location.origin) {
+                  sUrl = window.location.origin.includes('localhost') ? 'http://localhost:5000' : window.location.origin;
+                }
+                if (tok || sUrl) {
                   return {
-                    token: tok,
-                    serverUrl: localStorage.getItem('revalgo_api_endpoint') || window.location.origin
+                    token: tok || '',
+                    serverUrl: sUrl || ''
                   };
                 }
               } catch (_) {}
@@ -127,11 +162,11 @@ async function initPopup() {
           });
           if (injection && injection[0] && injection[0].result) {
             const res = injection[0].result;
-            await chrome.storage.local.set({
-              revalgo_token: res.token,
-              revalgo_server_url: res.serverUrl
-            });
-            return res.token;
+            const updateObj = {};
+            if (res.token) updateObj.revalgo_token = res.token;
+            if (res.serverUrl) updateObj.revalgo_server_url = res.serverUrl;
+            await chrome.storage.local.set(updateObj);
+            return res;
           }
         } catch (_) {}
       }
@@ -139,15 +174,37 @@ async function initPopup() {
     return null;
   }
 
-  if (!token) {
-    detectTokenFromOpenTabs().then(detectedToken => {
-      if (detectedToken) {
-        token = detectedToken;
-        if (tokenInput) tokenInput.value = token;
-        if (settingsPanel) settingsPanel.classList.add('hidden');
+  // Always keep target server and token fresh from open Revalgo tabs (non-blocking)
+  detectTokenFromOpenTabs().then(res => {
+    if (res) {
+      if (res.token) {
+        token = res.token;
+        if (tokenInput && !tokenInput.value) tokenInput.value = token;
+        if (settingsPanel && !tokenInput.value) settingsPanel.classList.add('hidden');
         hideStatus();
       }
-    }).catch(console.error);
+      if (res.serverUrl && serverUrlInput) {
+        serverUrlInput.value = res.serverUrl;
+      }
+    }
+  }).catch(console.error);
+
+  if (serverUrlInput) {
+    getResolvedServerUrl().then(url => {
+      serverUrlInput.value = url;
+    });
+  }
+
+  if (presetLocalBtn && serverUrlInput) {
+    presetLocalBtn.addEventListener('click', () => {
+      serverUrlInput.value = 'http://localhost:5000';
+    });
+  }
+
+  if (presetCloudBtn && serverUrlInput) {
+    presetCloudBtn.addEventListener('click', () => {
+      serverUrlInput.value = atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
+    });
   }
 
   if (toggleSettingsBtn) {
@@ -159,14 +216,20 @@ async function initPopup() {
   if (saveSettingsBtn) {
     saveSettingsBtn.addEventListener('click', async () => {
       const newToken = (tokenInput ? tokenInput.value : '').trim();
+      const newUrl = (serverUrlInput ? serverUrlInput.value : '').trim() || 'http://localhost:5000';
+
       if (!newToken) {
         showStatus('Please enter your Revalgo Account Token.', true);
         return;
       }
-      await chrome.storage.local.set({ revalgo_token: newToken });
+
+      await chrome.storage.local.set({
+        revalgo_token: newToken,
+        revalgo_server_url: newUrl.replace(/\/+$/, '')
+      });
       token = newToken;
       if (settingsPanel) settingsPanel.classList.add('hidden');
-      showStatus('✓ Account connected successfully!');
+      showStatus('✓ Configuration saved successfully!');
       setTimeout(hideStatus, 3000);
     });
   }

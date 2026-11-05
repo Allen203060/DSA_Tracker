@@ -141,12 +141,13 @@
   - **Migration Script Sanitization**: Removed the hardcoded MongoDB Atlas production URI from `scripts/sanitize_enhanced_notes.js`, binding it strictly to environment variables (`MONGODB_URI`).
   - **Hardened `.gitignore` Boundaries**: Broadened git ignore patterns to cover all `.env*` patterns and `atlas-credentials.env` explicitly to eliminate credential leakage.
 
-- **Phase 27: Extension Lifecycle Resilience, Active-Tab Priority & Permission Hardening** (Current):
+- **Phase 27: Extension Lifecycle Resilience, Active-Tab Priority & Endpoint Auto-Healing** (Current):
   - **`DOMContentLoaded` Lifecycle Race Condition Remediation**: Eliminated dead-on-arrival event listeners in `popup.js` by checking `document.readyState === 'loading'`. Extension popups now run `initPopup()` immediately if parsing finished before script execution.
   - **Active-Tab-First In-Page Extraction**: Refactored the popup startup sequence to prioritize active tab problem scraping instantly upon opening. Executing a comprehensive `inPageScrape` function via `chrome.scripting.executeScript` (`world: 'MAIN'` with isolated fallback) extracts `title`, `url`, `difficulty`, `language`, and `code` in <50ms without waiting for content script handshake or background tab queries.
   - **Non-Blocking Background Token Discovery**: Decoupled multi-tab token discovery so it executes asynchronously in the background with host filtering (`isRevalgoCandidate`), eliminating 4-second startup freezes across multi-tab browser sessions.
   - **Manifest MV3 Permissions & Web Accessible Resources**: Added `"tabs"` to `manifest.json` `permissions` (enabling accurate `tab.url` and `tab.title` reading) and added `*://leetcode.com/*` and `*://geeksforgeeks.org/*` to `web_accessible_resources`.
   - **Language Detection Precision**: Updated syntax patterns to cleanly differentiate Java solutions from C++ solutions, preventing Java code (`class Solution { class Node ... }`) from erroneously defaulting to C++.
+  - **Local Endpoint Auto-Healing & Target Presets**: Upgraded `getResolvedServerUrl()` in `popup.js` and `background.js` to automatically probe `http://localhost:5000` and `http://localhost:5173` with sub-second health checks before falling back to dormant cloud URLs. Added server configuration inputs and 1-click preset buttons (`[ 💻 Localhost (5000) ]` and `[ 🌐 Cloud Server ]`) inside the `⚙ Config` drawer.
 
 
 
