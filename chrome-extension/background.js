@@ -2,42 +2,17 @@
 // Manages persistent asynchronous problem logging and native desktop notifications
 
 async function getResolvedServerUrl() {
+  const CLOUD_URL = atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
   try {
     const stored = await chrome.storage.local.get(['revalgo_server_url']);
     if (stored.revalgo_server_url && typeof stored.revalgo_server_url === 'string') {
       const url = stored.revalgo_server_url.replace(/\/+$/, '');
-      if (!url.includes('revalgo-api.onrender.com')) {
+      if (url.startsWith('http://') || url.startsWith('https://')) {
         return url;
       }
     }
   } catch (_) {}
-
-  // Auto-heal: verify if local backend on port 5000 is active (sub-millisecond local check)
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 250);
-    const localRes = await fetch('http://localhost:5000/api/health', { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (localRes.ok) {
-      await chrome.storage.local.set({ revalgo_server_url: 'http://localhost:5000' });
-      return 'http://localhost:5000';
-    }
-  } catch (_) {}
-
-  // Auto-heal: check if local Vite dev server (port 5173) is active
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 250);
-    const viteRes = await fetch('http://localhost:5173/api/health', { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (viteRes.ok) {
-      await chrome.storage.local.set({ revalgo_server_url: 'http://localhost:5173' });
-      return 'http://localhost:5173';
-    }
-  } catch (_) {}
-
-  // Runtime decoded default endpoint to avoid cleartext backend disclosure in source
-  return atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
+  return CLOUD_URL;
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

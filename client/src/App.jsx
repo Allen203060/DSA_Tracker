@@ -18,6 +18,16 @@ import { detectCodeLanguage } from './utils/codeDetector';
 // Base API URL configuration for cloud deployment (e.g. DigitalOcean / Heroku) vs local proxy
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
 
+export const getBackendApiOrigin = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
+  }
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://localhost:5000';
+  }
+  return 'https://revalgo-api.onrender.com';
+};
+
 // Attach JWT Bearer token to all outgoing API requests
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem('revalgo_token');
@@ -360,7 +370,7 @@ function App() {
 
     const token = localStorage.getItem('revalgo_token');
     if (token) {
-      localStorage.setItem('revalgo_api_endpoint', window.location.origin);
+      localStorage.setItem('revalgo_api_endpoint', getBackendApiOrigin());
       axios.get('/api/auth/me')
         .then((res) => {
           setCurrentUser(res.data.user);
@@ -452,7 +462,7 @@ function App() {
       const res = await axios.post('/api/auth/google', { credential: response.credential });
       const { user, token } = res.data;
       localStorage.setItem('revalgo_token', token);
-      localStorage.setItem('revalgo_api_endpoint', window.location.origin);
+      localStorage.setItem('revalgo_api_endpoint', getBackendApiOrigin());
       localStorage.setItem('revalgo_user', JSON.stringify(user));
       setCurrentUser(user);
       setIsAuthModalOpen(false);
@@ -478,7 +488,7 @@ function App() {
         });
         const { user, token } = res.data;
         localStorage.setItem('revalgo_token', token);
-        localStorage.setItem('revalgo_api_endpoint', window.location.origin);
+        localStorage.setItem('revalgo_api_endpoint', getBackendApiOrigin());
         localStorage.setItem('revalgo_user', JSON.stringify(user));
         setCurrentUser(user);
         setIsAuthModalOpen(false);
@@ -496,7 +506,7 @@ function App() {
         const { user, token } = res.data;
 
         localStorage.setItem('revalgo_token', token);
-        localStorage.setItem('revalgo_api_endpoint', window.location.origin);
+        localStorage.setItem('revalgo_api_endpoint', getBackendApiOrigin());
         localStorage.setItem('revalgo_user', JSON.stringify(user));
         setCurrentUser(user);
         setIsAuthModalOpen(false);
@@ -555,7 +565,7 @@ function App() {
       const res = await axios.post('/api/auth/demo');
       const { user, token } = res.data;
       localStorage.setItem('revalgo_token', token);
-      localStorage.setItem('revalgo_api_endpoint', window.location.origin);
+      localStorage.setItem('revalgo_api_endpoint', getBackendApiOrigin());
       localStorage.setItem('revalgo_user', JSON.stringify(user));
       setCurrentUser(user);
       setShowVisitorModal(false);

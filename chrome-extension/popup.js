@@ -6,42 +6,17 @@ let capturedDifficulty = 'Medium';
 let capturedTestCases = [];
 
 async function getResolvedServerUrl() {
+  const CLOUD_URL = atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
   try {
     const stored = await chrome.storage.local.get(['revalgo_server_url']);
     if (stored.revalgo_server_url && typeof stored.revalgo_server_url === 'string') {
       const url = stored.revalgo_server_url.replace(/\/+$/, '');
-      if (!url.includes('revalgo-api.onrender.com')) {
+      if (url.startsWith('http://') || url.startsWith('https://')) {
         return url;
       }
     }
   } catch (_) {}
-
-  // Auto-heal: verify if local backend on port 5000 is active (sub-millisecond local check)
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 250);
-    const localRes = await fetch('http://localhost:5000/api/health', { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (localRes.ok) {
-      await chrome.storage.local.set({ revalgo_server_url: 'http://localhost:5000' });
-      return 'http://localhost:5000';
-    }
-  } catch (_) {}
-
-  // Auto-heal: check if local Vite dev server (port 5173) is active
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 250);
-    const viteRes = await fetch('http://localhost:5173/api/health', { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (viteRes.ok) {
-      await chrome.storage.local.set({ revalgo_server_url: 'http://localhost:5173' });
-      return 'http://localhost:5173';
-    }
-  } catch (_) {}
-
-  // Runtime decoded default endpoint to avoid cleartext backend disclosure in source
-  return atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
+  return CLOUD_URL;
 }
 
 function detectCodeLanguage(code) {
@@ -148,7 +123,11 @@ async function initPopup() {
                 const tok = localStorage.getItem('revalgo_token');
                 let sUrl = localStorage.getItem('revalgo_api_endpoint');
                 if (!sUrl && window.location.origin) {
-                  sUrl = window.location.origin.includes('localhost') ? 'http://localhost:5000' : window.location.origin;
+                  sUrl = window.location.origin.includes('localhost') ? 'http://localhost:5000' : atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
+                }
+                // Sanitize frontend origins to official backend API
+                if (sUrl && !sUrl.includes('localhost') && !sUrl.includes('revalgo-api.onrender.com') && !sUrl.includes(':5000')) {
+                  sUrl = atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
                 }
                 if (tok || sUrl) {
                   return {
