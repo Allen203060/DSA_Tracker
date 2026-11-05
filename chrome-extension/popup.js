@@ -37,9 +37,6 @@ async function initPopup() {
   const toggleSettingsBtn = document.getElementById('toggleSettingsBtn');
   const settingsPanel = document.getElementById('settingsPanel');
   const tokenInput = document.getElementById('tokenInput');
-  const serverUrlInput = document.getElementById('serverUrlInput');
-  const presetLocalBtn = document.getElementById('presetLocalBtn');
-  const presetCloudBtn = document.getElementById('presetCloudBtn');
   const saveSettingsBtn = document.getElementById('saveSettingsBtn');
 
   const titleInput = document.getElementById('titleInput');
@@ -155,36 +152,13 @@ async function initPopup() {
 
   // Always keep target server and token fresh from open Revalgo tabs (non-blocking)
   detectTokenFromOpenTabs().then(res => {
-    if (res) {
-      if (res.token) {
-        token = res.token;
-        if (tokenInput && !tokenInput.value) tokenInput.value = token;
-        if (settingsPanel && !tokenInput.value) settingsPanel.classList.add('hidden');
-        hideStatus();
-      }
-      if (res.serverUrl && serverUrlInput) {
-        serverUrlInput.value = res.serverUrl;
-      }
+    if (res && res.token) {
+      token = res.token;
+      if (tokenInput && !tokenInput.value) tokenInput.value = token;
+      if (settingsPanel && !tokenInput.value) settingsPanel.classList.add('hidden');
+      hideStatus();
     }
   }).catch(console.error);
-
-  if (serverUrlInput) {
-    getResolvedServerUrl().then(url => {
-      serverUrlInput.value = url;
-    });
-  }
-
-  if (presetLocalBtn && serverUrlInput) {
-    presetLocalBtn.addEventListener('click', () => {
-      serverUrlInput.value = 'http://localhost:5000';
-    });
-  }
-
-  if (presetCloudBtn && serverUrlInput) {
-    presetCloudBtn.addEventListener('click', () => {
-      serverUrlInput.value = atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
-    });
-  }
 
   if (toggleSettingsBtn) {
     toggleSettingsBtn.addEventListener('click', () => {
@@ -195,7 +169,6 @@ async function initPopup() {
   if (saveSettingsBtn) {
     saveSettingsBtn.addEventListener('click', async () => {
       const newToken = (tokenInput ? tokenInput.value : '').trim();
-      const newUrl = (serverUrlInput ? serverUrlInput.value : '').trim() || 'http://localhost:5000';
 
       if (!newToken) {
         showStatus('Please enter your Revalgo Account Token.', true);
@@ -203,12 +176,11 @@ async function initPopup() {
       }
 
       await chrome.storage.local.set({
-        revalgo_token: newToken,
-        revalgo_server_url: newUrl.replace(/\/+$/, '')
+        revalgo_token: newToken
       });
       token = newToken;
       if (settingsPanel) settingsPanel.classList.add('hidden');
-      showStatus('✓ Configuration saved successfully!');
+      showStatus('✓ Account connected successfully!');
       setTimeout(hideStatus, 3000);
     });
   }

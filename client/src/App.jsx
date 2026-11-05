@@ -25,7 +25,7 @@ export const getBackendApiOrigin = () => {
   if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
     return 'http://localhost:5000';
   }
-  return 'https://revalgo-api.onrender.com';
+  return atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
 };
 
 // Attach JWT Bearer token to all outgoing API requests
