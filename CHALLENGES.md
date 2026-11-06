@@ -489,6 +489,33 @@ When clicking "✨ Auto-Fill from Code" inside the Revalgo Companion extension, 
 **Key Takeaway (Interview Insight):**
 HTTP 404 is a routing/endpoint failure, never a quota limit. In multi-environment companion extensions (local dev vs cloud deployment), implement an auto-healing resolution pipeline: probe local health endpoints first before falling back to cloud, continuously synchronize API targets from open web tabs, and provide explicit UI presets in the configuration panel.
 
+## Challenge 35: Superficial Single-Box Recall vs Multi-Stage Cognitive Active Recall Pipeline
+
+**The Problem:**
+The original review modal only had a single textarea for raw recall notes and immediately submitted an AI-graded score to the SuperMemo-2 engine. Users lacked structured scaffolding to explain their approach, received no intermediate critique on algorithmic invariants or edge cases before writing code, and had no unified pathway to test their recall hands-on in code.
+
+**Root Cause:**
+Algorithmic problem-solving is fundamentally a **two-factor cognitive process**:
+1. **Abstract Conceptual Retrieval**: Remembering the optimal pattern, core recurrence, state transitions, and foundational invariants (e.g., why BFS is required for level-order distance before DFS reconstructs paths).
+2. **Syntactic & Concrete Execution**: Implementing the solution without off-by-one errors, edge-case crashes, or memory leaks.
+
+Collapsing these two into a single prompt caused the "illusion of competence" (users believed they understood the problem theoretically but failed the implementation) or caused cognitive overload (forcing a full rewrite without conceptual reassurance).
+
+**Solution:**
+1. **Backend Two-Factor History & Review Endpoint**:
+   - Updated `Question` schema `reviewHistory` to record `conceptualScore` (0-5), `codeScore` (0-100), and `feedback`.
+   - Updated `reviewQuestion` in `questionController.js` to ingest these factors while preserving SM-2 interval and ease factor dynamics.
+   - Built `POST /api/ai/critique-approach` in `aiController.js` returning structured JSON (`score`, `verdict`, `critique`, `strengths`, `gaps`, `keyInvariant`, `readyForCode`).
+2. **4-Stage Progressive Recall Wizard**:
+   - **Stage 1 (Concept Retrieval)**: Structured approach prompt with 1-click guided helper chips (`💡 Core Invariant`, `🧩 Data Structure & State`, `⚠️ Edge Cases`, `⏱️ Time & Space`).
+   - **Stage 2 (AI Critique & Invariant Review)**: Pedagogical feedback highlighting specific strengths, gaps, and an emphasized callout banner displaying the single key invariant needed to solve the problem.
+   - **Stage 3 (Hands-On Code Verification)**: In-app code editor with language selection (C++, Python, Java, JS), external LeetCode direct link, and AI compiler simulation.
+   - **Stage 4 (Composite SM-2 Rescheduling)**: Calculates composite score (`conceptualScore * 0.4 + (codeScore / 20) * 0.6`), reschedules the problem via SM-2, and displays new repetition intervals.
+
+**Key Takeaway (Interview Insight):**
+Spaced repetition for complex engineering domains cannot rely on simple flashcards. Disentangling conceptual retrieval from code implementation and weighting them into a composite quality score aligns with the Generation Effect and Cognitive Load Theory, dramatically increasing long-term retention and eliminating the illusion of competence.
+
+
 
 
 

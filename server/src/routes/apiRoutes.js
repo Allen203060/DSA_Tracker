@@ -14,7 +14,8 @@ import {
   gradeRecall, 
   gradeCode, 
   generateBoilerplate,
-  summarizeApproachFromCode
+  summarizeApproachFromCode,
+  critiqueApproach
 } from '../controllers/aiController.js';
 import { 
   importProblemFromUrl, 
@@ -59,6 +60,7 @@ router.get('/import/search', requireAuth, searchProblems);
 // --- AI Study Buddy & Evaluator ---
 router.post('/ai/classify', requireAuth, classifyPattern);
 router.post('/ai/grade', requireAuth, gradeRecall);
+router.post('/ai/critique-approach', requireAuth, critiqueApproach);
 router.post('/ai/grade-code', requireAuth, gradeCode);
 router.post('/ai/generate-boilerplate', requireAuth, generateBoilerplate);
 router.post('/ai/summarize-code', requireAuth, summarizeApproachFromCode);

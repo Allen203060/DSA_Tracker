@@ -115,7 +115,7 @@ export const reviewQuestion = async (req, res) => {
   try {
     const { id } = req.params;
     // quality is a score from 0 to 5. (5 = perfect recall, 0 = complete blackout)
-    const { quality } = req.body; 
+    const { quality, conceptualScore, codeScore, feedback } = req.body; 
     
     const question = await Question.findOne({ _id: id, ...getUserFilter(req) });
     if (!question) return res.status(404).json({ message: "Question not found" });
@@ -156,7 +156,10 @@ export const reviewQuestion = async (req, res) => {
     if (!question.reviewHistory) question.reviewHistory = [];
     question.reviewHistory.push({
       reviewedAt: new Date(),
-      quality: quality
+      quality: quality,
+      conceptualScore: conceptualScore !== undefined ? conceptualScore : quality,
+      codeScore: codeScore !== undefined ? codeScore : null,
+      feedback: feedback || null
     });
 
     await question.save();

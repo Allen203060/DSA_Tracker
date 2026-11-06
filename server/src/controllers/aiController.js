@@ -287,3 +287,75 @@ export const summarizeApproachFromCode = async (req, res) => {
   }
 };
 
+export const critiqueApproach = async (req, res) => {
+  const { title, url, originalNotes, userApproach, codeLanguage } = req.body;
+
+  if (!userApproach || !userApproach.trim()) {
+    return res.status(400).json({ error: "Please explain your approach or pseudocode." });
+  }
+
+  try {
+    const approachCritiqueSchema = z.object({
+      score: z.number().min(0).max(5).describe("A conceptual recall score from 0 to 5 based on algorithmic correctness, invariant preservation, and edge cases. 5 = Flawless intuition & optimal pattern, 4 = Solid grasp with minor omission, 3 = Core idea intact but missing critical invariant/edge case, 2 = Flawed logic or suboptimal approach, 1 = Minimal recollection, 0 = Blank or completely wrong."),
+      verdict: z.enum(['Mastered', 'Solid Understanding', 'Partial Recall', 'Flawed Logic', 'Complete Blackout']).describe("Concise verdict category summarizing recall quality."),
+      critique: z.string().describe("A 2-3 sentence constructive, friendly critique of the student's algorithmic reasoning."),
+      strengths: z.array(z.string()).describe("2-3 specific algorithmic points the student correctly identified (e.g. correct state definition, optimal data structure choice)."),
+      gaps: z.array(z.string()).describe("1-2 key conceptual gaps, missed edge cases, or incorrect invariant assumptions."),
+      suggestions: z.array(z.string()).describe("1-2 actionable tips or improvements before writing code."),
+      keyInvariant: z.string().describe("The foundational algorithmic invariant or core truth needed for this problem (e.g., 'BFS guarantees shortest path length before backtracking reconstructs paths')."),
+      readyForCode: z.boolean().describe("True if the approach is sound enough to proceed with code implementation.")
+    });
+
+    const modelName = process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
+    const llm = new ChatOpenRouter({
+      model: modelName,
+      temperature: 0,
+      maxTokens: 1500,
+    }).withStructuredOutput(approachCritiqueSchema);
+
+    const prompt = `
+      You are an expert algorithms instructor and friendly DSA mentor.
+      A student is conducting an active recall review session for a spaced repetition schedule.
+      Before writing any code, they must explain their approach, pseudocode, or algorithmic intuition in natural language.
+
+      Problem Title: ${title || 'Algorithmic Problem'}
+      ${url ? `Problem Reference Link: ${url}` : ''}
+      Target Language: ${codeLanguage || 'cpp'}
+
+      Original Problem Reference Notes:
+      """
+      ${originalNotes || 'No reference notes provided'}
+      """
+
+      Student's Recalled Approach / Pseudocode:
+      """
+      ${userApproach}
+      """
+
+      EVALUATION INSTRUCTIONS:
+      1. Assess whether the student correctly identifies the optimal data structure(s) and algorithmic pattern (e.g., Two Pointers, BFS, DP, Monotonic Stack).
+      2. Check if their stated state transitions, invariants, and edge cases are correct.
+      3. Assign an integer conceptual score from 0 to 5:
+         - 5: Flawless intuition, optimal pattern, clear invariants.
+         - 4: Solid grasp, minor step or edge case missed.
+         - 3: Core idea correct, but missing critical invariant or details.
+         - 2: Flawed approach, suboptimal complexity, or hand-waving major logic.
+         - 1: Surface memory only (remembered keywords, wrong algorithm).
+         - 0: Completely blank or hallucinated nonsense.
+      4. Highlight 2-3 specific strengths and 1-2 concrete gaps/edge cases.
+      5. State the Single Key Invariant they must remember during implementation.
+      6. Provide 1-2 actionable suggestions to polish their logic.
+    `;
+
+    const response = await llm.invoke([{ role: "user", content: prompt }]);
+    if (response) {
+      if (response.critique) response.critique = cleanMarkdownNotes(response.critique);
+      if (response.keyInvariant) response.keyInvariant = cleanMarkdownNotes(response.keyInvariant);
+    }
+    res.json(response);
+  } catch (error) {
+    console.error("critiqueApproach Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+

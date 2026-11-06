@@ -182,6 +182,36 @@ describe('Question API Endpoints & Multi-User Authentication', () => {
     expect(dueAfter.body.some(item => item._id === q._id.toString())).toBe(false);
   });
 
+  it('should record conceptualScore, codeScore, and feedback in reviewHistory', async () => {
+    const q = await Question.create({
+      title: 'Word Ladder II',
+      notes: 'BFS + DFS',
+      userId: testUser.id,
+      repetitions: 0,
+      easeFactor: 2.5,
+      interval: 0,
+      nextReviewDate: new Date()
+    });
+
+    const res = await request(app)
+      .post(`/api/questions/${q._id}/review`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        quality: 5,
+        conceptualScore: 5,
+        codeScore: 95,
+        feedback: 'Excellent dual-phase BFS+DFS implementation'
+      });
+
+    expect(res.status).toBe(200);
+    const updated = await Question.findById(q._id);
+    expect(updated.reviewHistory.length).toBe(1);
+    expect(updated.reviewHistory[0].quality).toBe(5);
+    expect(updated.reviewHistory[0].conceptualScore).toBe(5);
+    expect(updated.reviewHistory[0].codeScore).toBe(95);
+    expect(updated.reviewHistory[0].feedback).toBe('Excellent dual-phase BFS+DFS implementation');
+  });
+
   it('should fetch a random question for Practice Mode', async () => {
     await Question.create({ title: 'Random Solved Problem 1', notes: 'Notes 1', userId: testUser.id });
     await Question.create({ title: 'Random Solved Problem 2', notes: 'Notes 2', userId: testUser.id });

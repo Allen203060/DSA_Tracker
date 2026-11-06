@@ -50,7 +50,10 @@ const questionSchema = new mongoose.Schema({
   // History of recall reviews performed on this question
   reviewHistory: [{
     reviewedAt: { type: Date, default: Date.now },
-    quality: { type: Number, required: true }
+    quality: { type: Number, required: true },
+    conceptualScore: { type: Number },
+    codeScore: { type: Number },
+    feedback: { type: String }
   }],
 
 }, { timestamps: true });

@@ -8,7 +8,7 @@ import {
   Plus, RotateCcw, Sparkles, CheckCircle, Edit3, Save, Sun, Moon,
   User as UserIcon, LogOut, Key, ShieldCheck, UserPlus, ArrowLeft, Lock, Info, HelpCircle,
   Skull, AlertTriangle, Hourglass, Zap, Search, Wand2, Link2, CheckCheck, Download, Clock,
-  ArrowRight, GraduationCap, BookOpen
+  ArrowRight, GraduationCap, BookOpen, Lightbulb
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import ThreeBackground from './components/ThreeBackground';
@@ -147,9 +147,15 @@ function App() {
   const [expandedNotesId, setExpandedNotesId] = useState(null);
   const [noteViewMode, setNoteViewMode] = useState({}); // { [qId]: 'ai' | 'raw' }
 
-  // Recall Review Modal State
+  // Multi-Stage Active Recall Review Modal State (Phase 1)
   const [reviewingQuestion, setReviewingQuestion] = useState(null);
+  const [reviewStep, setReviewStep] = useState(1); // 1: Concept/Approach, 2: AI Critique, 3: Implementation, 4: SM-2 Result
   const [recallText, setRecallText] = useState('');
+  const [approachCritique, setApproachCritique] = useState(null);
+  const [isCritiquingApproach, setIsCritiquingApproach] = useState(false);
+  const [reviewCode, setReviewCode] = useState('');
+  const [reviewCodeLang, setReviewCodeLang] = useState('cpp');
+  const [isReviewGradingCode, setIsReviewGradingCode] = useState(false);
   const [isGrading, setIsGrading] = useState(false);
   const [gradeResult, setGradeResult] = useState(null);
 
@@ -1156,47 +1162,127 @@ function App() {
     }
   };
 
-  const submitRecall = async () => {
-    if (!recallText.trim()) return;
-    setIsGrading(true);
-    
+  const openReviewModal = (q) => {
+    setReviewingQuestion(q);
+    setReviewStep(1);
+    setRecallText('');
+    setApproachCritique(null);
+    setReviewCode(q.code || '');
+    setReviewCodeLang(q.codeLanguage || 'cpp');
+    setGradeResult(null);
+  };
+
+  const closeReview = () => {
+    setReviewingQuestion(null);
+    setReviewStep(1);
+    setRecallText('');
+    setApproachCritique(null);
+    setReviewCode('');
+    setGradeResult(null);
+    fetchQuestions();
+    fetchActivityStats();
+  };
+
+  const handleCritiqueApproach = async () => {
+    if (!recallText.trim() || !reviewingQuestion) return;
+    setIsCritiquingApproach(true);
     try {
-      const gradeRes = await axios.post('/api/ai/grade', {
-        originalNotes: reviewingQuestion.notes,
-        userRecall: recallText,
+      const res = await axios.post('/api/ai/critique-approach', {
         title: reviewingQuestion.title,
-        url: reviewingQuestion.url
+        url: reviewingQuestion.url,
+        originalNotes: reviewingQuestion.notes || reviewingQuestion.enhancedNotes,
+        userApproach: recallText,
+        codeLanguage: reviewCodeLang
       });
-      
-      const { score, feedback } = gradeRes.data;
-      
+      setApproachCritique(res.data);
+      setReviewStep(2);
+    } catch (err) {
+      console.error("Approach critique failed", err);
+      alert(err.response?.data?.error || "Failed to analyze approach with AI Tutor");
+    } finally {
+      setIsCritiquingApproach(false);
+    }
+  };
+
+  const handleCompleteWithConceptOnly = async () => {
+    if (!reviewingQuestion || !approachCritique) return;
+    setIsGrading(true);
+    try {
+      const conceptualScore = Number.isFinite(approachCritique.score) ? approachCritique.score : 3;
       const reviewRes = await axios.post(`/api/questions/${reviewingQuestion._id}/review`, {
-        quality: score
+        quality: conceptualScore,
+        conceptualScore: conceptualScore,
+        codeScore: null,
+        feedback: approachCritique.critique || ''
       });
-      
-      setGradeResult({ 
-        score, 
-        feedback,
+      setGradeResult({
+        score: conceptualScore,
+        conceptualScore: conceptualScore,
+        codeScore: null,
+        feedback: approachCritique.critique,
         interval: reviewRes.data?.interval || 1,
         nextReviewDate: reviewRes.data?.nextReviewDate
       });
-
+      setReviewStep(4);
       fetchQuestions();
       fetchActivityStats();
-    } catch (error) {
-      console.error("Failed to grade", error);
-      alert("Error grading recall");
+    } catch (err) {
+      console.error("Failed to complete conceptual review", err);
+      alert("Failed to submit review");
     } finally {
       setIsGrading(false);
     }
   };
 
-  const closeReview = () => {
-    setReviewingQuestion(null);
-    setRecallText('');
-    setGradeResult(null);
-    fetchQuestions();
-    fetchActivityStats();
+  const handleSubmitCodeReview = async () => {
+    if (!reviewingQuestion) return;
+    setIsReviewGradingCode(true);
+    try {
+      let codeScore = null;
+      let codeEvaluation = null;
+
+      if (reviewCode && reviewCode.trim()) {
+        const gradeRes = await axios.post('/api/ai/grade-code', {
+          title: reviewingQuestion.title,
+          code: reviewCode,
+          codeLanguage: reviewCodeLang,
+          originalNotes: reviewingQuestion.notes || reviewingQuestion.enhancedNotes,
+          testCases: reviewingQuestion.testCases || []
+        });
+        codeEvaluation = gradeRes.data;
+        codeScore = typeof gradeRes.data?.score === 'number' ? gradeRes.data.score : 70;
+      }
+
+      const conceptualScore = approachCritique?.score ?? 3;
+      const compositeQuality = codeScore !== null
+        ? Math.min(5, Math.max(0, Math.round(conceptualScore * 0.4 + (codeScore / 20) * 0.6)))
+        : conceptualScore;
+
+      const reviewRes = await axios.post(`/api/questions/${reviewingQuestion._id}/review`, {
+        quality: compositeQuality,
+        conceptualScore: conceptualScore,
+        codeScore: codeScore,
+        feedback: codeEvaluation?.summary || approachCritique?.critique || ''
+      });
+
+      setGradeResult({
+        score: compositeQuality,
+        conceptualScore: conceptualScore,
+        codeScore: codeScore,
+        feedback: codeEvaluation?.summary || approachCritique?.critique,
+        interval: reviewRes.data?.interval || 1,
+        nextReviewDate: reviewRes.data?.nextReviewDate,
+        codeEvaluation: codeEvaluation
+      });
+      setReviewStep(4);
+      fetchQuestions();
+      fetchActivityStats();
+    } catch (err) {
+      console.error("Code evaluation failed", err);
+      alert(err.response?.data?.error || "Failed to evaluate code with AI Compiler");
+    } finally {
+      setIsReviewGradingCode(false);
+    }
   };
 
   const handleRandomPractice = async () => {
@@ -2387,11 +2473,7 @@ function App() {
                       <div className="flex items-center justify-between pt-3 border-t border-slate-200/70 dark:border-white/[0.08] mt-2">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => {
-                              setReviewingQuestion(q);
-                              setRecallText('');
-                              setGradeResult(null);
-                            }}
+                            onClick={() => openReviewModal(q)}
                             className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-sm transition-all active:scale-[0.98]"
                           >
                             Review Recall
@@ -2750,99 +2832,439 @@ function App() {
       )}
 
       {/* ========================================================================= */}
-      {/* --- MODAL 3: THE AI RECALL REVIEW MODAL --- */}
+      {/* --- MODAL 3: MULTI-STAGE ACTIVE RECALL REVIEW PIPELINE --- */}
       {/* ========================================================================= */}
       {reviewingQuestion && (
-        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="glass-panel max-w-2xl w-full rounded-2xl border border-indigo-500/30 p-6 shadow-2xl space-y-5">
+        <div className="fixed inset-0 bg-black/70 dark:bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="glass-panel max-w-3xl w-full rounded-2xl border border-indigo-500/30 p-5 sm:p-7 shadow-2xl space-y-6 my-auto max-h-[92vh] flex flex-col">
             
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.08] pb-3">
+            {/* Header & Step Wizard Tabs */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 dark:border-white/[0.08] pb-4 shrink-0">
               <div>
-                <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider font-mono">
-                  Active Recall Challenge
-                </span>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">{reviewingQuestion.title}</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Multi-Stage Active Recall
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 font-mono font-medium border border-indigo-500/20">
+                    Step {reviewStep} of 4
+                  </span>
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-1 flex items-center gap-2">
+                  {reviewingQuestion.title}
+                  {reviewingQuestion.url && (
+                    <a
+                      href={reviewingQuestion.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-slate-400 hover:text-indigo-400 transition-colors"
+                      title="Open LeetCode/Problem Link"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+                </h3>
               </div>
-              <button
-                onClick={closeReview}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
+
+              {/* Progress Steps Indicator */}
+              <div className="flex items-center gap-1 sm:gap-2 text-[11px] font-mono">
+                {[
+                  { step: 1, label: "Concept" },
+                  { step: 2, label: "Critique" },
+                  { step: 3, label: "Code" },
+                  { step: 4, label: "SM-2" },
+                ].map((s, idx) => (
+                  <div key={s.step} className="flex items-center gap-1 sm:gap-2">
+                    <span
+                      className={`px-2 py-1 rounded-lg transition-all ${
+                        reviewStep === s.step
+                          ? "bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/30"
+                          : reviewStep > s.step
+                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-medium border border-emerald-500/30"
+                          : "text-slate-400 dark:text-slate-500 bg-slate-200/40 dark:bg-white/[0.04]"
+                      }`}
+                    >
+                      {reviewStep > s.step ? "✓ " : `${s.step}. `}{s.label}
+                    </span>
+                    {idx < 3 && <span className="text-slate-300 dark:text-slate-700">›</span>}
+                  </div>
+                ))}
+                <button
+                  onClick={closeReview}
+                  className="ml-2 text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg"
+                  title="Close Review"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            {!gradeResult ? (
-              <div className="space-y-4">
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-sans">
-                  Explain the core approach, data structures, and boundary edge cases from memory. Your AI tutor will evaluate your recall and adjust your SuperMemo-2 spaced repetition schedule!
-                </p>
+            {/* Step Body (Scrollable if content overflows) */}
+            <div className="overflow-y-auto pr-1 space-y-5 flex-1">
+              {/* ---------------- STEP 1: CONCEPTUAL RECALL RETRIEVAL ---------------- */}
+              {reviewStep === 1 && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed">
+                    <p className="font-semibold mb-1 flex items-center gap-1.5">
+                      <GraduationCap className="w-4 h-4" /> Step 1: Explain your approach &amp; invariant from memory
+                    </p>
+                    Describe the core algorithmic pattern, data structures, and edge cases in plain English or pseudocode. Your AI Tutor will critique your approach, detect gaps, and score conceptual recall before you write code!
+                  </div>
 
-                <textarea
-                  value={recallText}
-                  onChange={(e) => setRecallText(e.target.value)}
-                  rows={6}
-                  placeholder="e.g. We use a Monotonic Decreasing Stack. We iterate through the array and while current element is greater than stack top, we pop and record the day distance..."
-                  className="w-full glass-input rounded-xl p-3.5 text-xs sm:text-sm font-sans resize-none leading-relaxed"
-                />
+                  {/* Guided Prompt Helper Chips */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">Insert Prompt Guides:</span>
+                    {[
+                      { label: "💡 Core Invariant", text: "\n• Core Invariant: " },
+                      { label: "🧩 Data Structure & State", text: "\n• Data Structures & State: " },
+                      { label: "⚠️ Edge Cases", text: "\n• Critical Edge Cases: " },
+                      { label: "⏱️ Time & Space", text: "\n• Complexity: " }
+                    ].map((chip) => (
+                      <button
+                        key={chip.label}
+                        type="button"
+                        onClick={() => setRecallText((prev) => prev + chip.text)}
+                        className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-slate-200/50 dark:bg-white/[0.06] hover:bg-indigo-500/15 hover:text-indigo-500 border border-slate-300/40 dark:border-white/[0.08] transition-all"
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
 
-                <div className="flex items-center justify-between pt-2">
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                    {recallText.trim().length} chars (minimum 15 recommended)
-                  </span>
+                  <textarea
+                    value={recallText}
+                    onChange={(e) => setRecallText(e.target.value)}
+                    rows={8}
+                    placeholder="e.g. For Word Ladder II, we use two phases:&#10;1. BFS from beginWord to construct a map (mpp) recording shortest step distances to each word. Stop when endWord is reached.&#10;2. Backtracking DFS from endWord backwards to beginWord, only moving to words with step distance = current_step - 1. This guarantees all returned paths are minimal length without exploring suboptimal branches."
+                    className="w-full glass-input rounded-xl p-4 text-xs sm:text-sm font-sans resize-none leading-relaxed focus:ring-2 focus:ring-indigo-500/40"
+                  />
 
-                  <div className="flex gap-2">
-                    <button
-                      onClick={closeReview}
-                      className="px-4 py-2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={submitRecall}
-                      disabled={isGrading || recallText.trim().length < 5}
-                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 disabled:opacity-50 transition-all flex items-center gap-2 active:scale-[0.98]"
-                    >
-                      {isGrading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                      {isGrading ? 'Grading Recall...' : 'Submit to AI Tutor'}
-                    </button>
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                      {recallText.trim().length} chars (minimum 15 recommended)
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={closeReview}
+                        className="px-4 py-2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleCritiqueApproach}
+                        disabled={isCritiquingApproach || recallText.trim().length < 5}
+                        className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/25 disabled:opacity-50 transition-all flex items-center gap-2 active:scale-[0.98]"
+                      >
+                        {isCritiquingApproach ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        {isCritiquingApproach ? 'Analyzing Approach...' : 'Analyze Approach with AI ✨'}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              /* Grade Result View */
-              <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-slate-200/30 dark:bg-slate-900/70 border border-indigo-500/20 flex items-center justify-between">
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">SM-2 Spaced Repetition Grade</span>
-                    <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 font-mono mt-0.5">
-                      {gradeResult.score} / 5
+              )}
+
+              {/* ---------------- STEP 2: AI CRITIQUE & INVARIANT FEEDBACK ---------------- */}
+              {reviewStep === 2 && approachCritique && (
+                <div className="space-y-4 animate-fade-in">
+                  {/* Verdict & Conceptual Score Header */}
+                  <div className="p-4 rounded-xl bg-slate-200/30 dark:bg-slate-900/70 border border-indigo-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+                        Conceptual Recall Evaluation
+                      </span>
+                      <div className="flex items-baseline gap-2 mt-0.5">
+                        <span className="text-2xl sm:text-3xl font-bold text-indigo-600 dark:text-indigo-400 font-mono">
+                          {approachCritique.score} / 5
+                        </span>
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                          approachCritique.score >= 4
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                            : approachCritique.score >= 3
+                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                            : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                        }`}>
+                          {approachCritique.verdict || (approachCritique.score >= 4 ? 'Solid Recall' : 'Needs Practice')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="sm:text-right">
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono block">
+                        Implementation Readiness
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-500/10 border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 text-xs font-semibold rounded-full mt-1">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        {approachCritique.readyForCode ? "Ready to Code" : "Review Invariant First"}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-semibold rounded-full">
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      Next due in {gradeResult.interval || 1} day{gradeResult.interval > 1 ? 's' : ''}
-                    </span>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-mono">Removed from today&apos;s active queue</p>
+                  {/* AI Critique Narrative */}
+                  <div className="p-4 rounded-xl bg-slate-200/40 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] text-xs text-slate-700 dark:text-slate-200 font-sans leading-relaxed">
+                    <ReactMarkdown>{cleanMarkdownNotes(approachCritique.critique)}</ReactMarkdown>
+                  </div>
+
+                  {/* Strengths & Gaps Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {approachCritique.strengths && approachCritique.strengths.length > 0 && (
+                      <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs">
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mb-2">
+                          <CheckCheck className="w-4 h-4" /> Strengths Identified:
+                        </span>
+                        <ul className="space-y-1.5 text-slate-700 dark:text-slate-300">
+                          {approachCritique.strengths.map((str, idx) => (
+                            <li key={idx} className="flex items-start gap-1.5">
+                              <span className="text-emerald-500 mt-0.5">•</span>
+                              <span>{str}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {approachCritique.gaps && approachCritique.gaps.length > 0 && (
+                      <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20 text-xs">
+                        <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-2">
+                          <AlertTriangle className="w-4 h-4" /> Conceptual Gaps / Edge Cases:
+                        </span>
+                        <ul className="space-y-1.5 text-slate-700 dark:text-slate-300">
+                          {approachCritique.gaps.map((gap, idx) => (
+                            <li key={idx} className="flex items-start gap-1.5">
+                              <span className="text-amber-500 mt-0.5">•</span>
+                              <span>{gap}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Key Algorithmic Invariant Callout */}
+                  {approachCritique.keyInvariant && (
+                    <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs">
+                      <span className="font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 mb-1">
+                        <Lightbulb className="w-4 h-4" /> Core Algorithmic Invariant to Remember:
+                      </span>
+                      <p className="text-slate-800 dark:text-slate-200 font-mono text-[11px] sm:text-xs">
+                        {approachCritique.keyInvariant}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Step 2 Actions */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-3 border-t border-slate-200/80 dark:border-white/[0.08]">
+                    <button
+                      type="button"
+                      onClick={() => setReviewStep(1)}
+                      className="px-4 py-2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    >
+                      ← Refine Approach
+                    </button>
+
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={handleCompleteWithConceptOnly}
+                        disabled={isGrading}
+                        className="flex-1 sm:flex-initial px-4 py-2 text-xs font-semibold rounded-xl bg-slate-200/60 dark:bg-white/[0.08] hover:bg-slate-300 dark:hover:bg-white/[0.12] text-slate-700 dark:text-slate-200 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        {isGrading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5 text-amber-500" />}
+                        Complete with Concept ({approachCritique.score}/5)
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setReviewStep(3)}
+                        className="flex-1 sm:flex-initial px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/25 transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                      >
+                        <Code className="w-3.5 h-3.5" />
+                        Implement in Code →
+                      </button>
+                    </div>
                   </div>
                 </div>
+              )}
 
-                <div className="p-4 rounded-xl bg-slate-200/30 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] text-xs text-slate-700 dark:text-slate-200 font-sans leading-relaxed max-h-60 overflow-y-auto">
-                  <ReactMarkdown>{cleanMarkdownNotes(gradeResult.feedback)}</ReactMarkdown>
-                </div>
+              {/* ---------------- STEP 3: CODE IMPLEMENTATION & COMPILER EVALUATION ---------------- */}
+              {reviewStep === 3 && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-slate-200/30 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06]">
+                    <div className="text-xs text-slate-600 dark:text-slate-300">
+                      <span className="font-semibold text-slate-900 dark:text-white block sm:inline">Step 2: Implement or paste your solution</span>
+                      {" "}— Write your code below or solve on LeetCode/GFG and paste it here.
+                    </div>
 
-                <div className="flex justify-end pt-2">
-                  <button
-                    onClick={closeReview}
-                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
-                  >
-                    Done &amp; Return to Dashboard
-                  </button>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={reviewCodeLang}
+                        onChange={(e) => setReviewCodeLang(e.target.value)}
+                        className="px-2.5 py-1 text-xs rounded-lg glass-input bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/[0.1] font-mono"
+                      >
+                        <option value="cpp">C++</option>
+                        <option value="python">Python</option>
+                        <option value="java">Java</option>
+                        <option value="javascript">JavaScript</option>
+                      </select>
+
+                      {reviewingQuestion.url && (
+                        <a
+                          href={reviewingQuestion.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1 text-xs rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-medium border border-indigo-500/30 flex items-center gap-1 transition-all"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>LeetCode</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  {approachCritique?.keyInvariant && (
+                    <div className="px-3 py-2 rounded-lg bg-indigo-500/5 border border-indigo-500/20 text-[11px] font-mono text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
+                      <Lightbulb className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                      <span className="truncate"><strong>Invariant:</strong> {approachCritique.keyInvariant}</span>
+                    </div>
+                  )}
+
+                  <div className="relative rounded-xl overflow-hidden border border-slate-300/60 dark:border-white/[0.1] bg-slate-950 shadow-inner">
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-white/[0.06] text-[11px] font-mono text-slate-400">
+                      <span>{reviewCodeLang.toUpperCase()} Editor</span>
+                      <button
+                        type="button"
+                        onClick={() => setReviewCode('')}
+                        className="text-slate-400 hover:text-white transition-colors"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <textarea
+                      value={reviewCode}
+                      onChange={(e) => setReviewCode(e.target.value)}
+                      rows={12}
+                      placeholder="// Type or paste your solution code here...&#10;class Solution {&#10;    // ...&#10;}"
+                      className="w-full bg-slate-950 text-slate-100 font-mono text-xs sm:text-sm p-4 resize-none leading-relaxed focus:outline-none"
+                      spellCheck={false}
+                    />
+                  </div>
+
+                  {/* Step 3 Actions */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-3 border-t border-slate-200/80 dark:border-white/[0.08]">
+                    <button
+                      type="button"
+                      onClick={() => setReviewStep(2)}
+                      className="px-4 py-2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    >
+                      ← Back to Critique
+                    </button>
+
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={handleCompleteWithConceptOnly}
+                        disabled={isReviewGradingCode || isGrading}
+                        className="flex-1 sm:flex-initial px-4 py-2 text-xs font-semibold rounded-xl bg-slate-200/60 dark:bg-white/[0.08] hover:bg-slate-300 dark:hover:bg-white/[0.12] text-slate-700 dark:text-slate-200 transition-all"
+                      >
+                        Skip Code (Use Concept Only)
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleSubmitCodeReview}
+                        disabled={isReviewGradingCode || !reviewCode.trim()}
+                        className="flex-1 sm:flex-initial px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/25 disabled:opacity-50 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+                      >
+                        {isReviewGradingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
+                        {isReviewGradingCode ? 'Evaluating & Rescheduling...' : 'Submit Code & Finalize SM-2'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* ---------------- STEP 4: FINAL SM-2 RESCHEDULING SUMMARY ---------------- */}
+              {reviewStep === 4 && gradeResult && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="p-5 rounded-2xl bg-slate-200/30 dark:bg-slate-900/70 border border-indigo-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+                        SuperMemo-2 Rescheduling Grade
+                      </span>
+                      <div className="flex items-baseline gap-2 mt-1">
+                        <span className="text-3xl sm:text-4xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono">
+                          {gradeResult.score} / 5
+                        </span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                          (Quality rating)
+                        </span>
+                      </div>
+                      
+                      {/* Score Breakdown */}
+                      <div className="flex flex-wrap items-center gap-2 mt-2 text-xs font-mono">
+                        <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                          Concept: {gradeResult.conceptualScore ?? gradeResult.score} / 5
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          Code: {gradeResult.codeScore !== null ? `${gradeResult.codeScore}%` : 'Skipped'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="sm:text-right">
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-semibold rounded-full shadow-sm">
+                        <CheckCircle className="w-4 h-4" />
+                        Next review due in {gradeResult.interval || 1} day{gradeResult.interval > 1 ? 's' : ''}
+                      </span>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-mono">
+                        Removed from active queue for today
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* AI Feedback Card */}
+                  <div className="p-4 rounded-xl bg-slate-200/30 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] text-xs text-slate-700 dark:text-slate-200 font-sans leading-relaxed max-h-56 overflow-y-auto">
+                    <div className="font-semibold text-slate-900 dark:text-white mb-1.5 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> AI Tutor Evaluation Summary:
+                    </div>
+                    <ReactMarkdown>{cleanMarkdownNotes(gradeResult.feedback)}</ReactMarkdown>
+                  </div>
+
+                  {/* Code Test Case Breakdown if available */}
+                  {gradeResult.codeEvaluation?.testResults && gradeResult.codeEvaluation.testResults.length > 0 && (
+                    <div className="p-3.5 rounded-xl bg-slate-900/60 border border-white/[0.06] text-xs space-y-2">
+                      <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                        <span>Compiler Test Case Simulation</span>
+                        <span className="text-emerald-400 font-semibold">
+                          {gradeResult.codeEvaluation.testResults.filter(t => t.passed).length} / {gradeResult.codeEvaluation.testResults.length} Passed
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        {gradeResult.codeEvaluation.testResults.map((tc, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.03] text-[11px] font-mono">
+                            <span className="text-slate-300 truncate max-w-[200px]">Input: {tc.input}</span>
+                            <span className={tc.passed ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>
+                              {tc.passed ? "✓ Passed" : "✗ Failed"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 4 Done Button */}
+                  <div className="flex justify-end pt-3 border-t border-slate-200/80 dark:border-white/[0.08]">
+                    <button
+                      type="button"
+                      onClick={closeReview}
+                      className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/25 transition-all active:scale-[0.98]"
+                    >
+                      Done &amp; Return to Dashboard
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

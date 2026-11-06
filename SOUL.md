@@ -151,10 +151,19 @@
 
 
 
+- Phase 28: Multi-Stage Active Review Pipeline (Current):
+  - **Structured 4-Stage Progressive Recall Wizard**: Replaced single-textarea review modal with an active recall flow:
+    - *Stage 1 (Conceptual Retrieval)*: User explains core approach, pattern, and invariants in natural language, supported by 1-click prompt helper chips (`💡 Core Invariant`, `🧩 Data Structure & State`, `⚠️ Edge Cases`, `⏱️ Time & Space`).
+    - *Stage 2 (AI Pedagogical Critique)*: Powered by `POST /api/ai/critique-approach`, provides conceptual recall grading (0-5), verdict category, breakdown of strengths and gaps, and a dedicated banner highlighting the core algorithmic invariant.
+    - *Stage 3 (Hands-on Implementation)*: In-app code editor with language selection (C++, Python, Java, JS), external LeetCode direct link, and AI compiler simulation.
+    - *Stage 4 (Composite SM-2 Rescheduling)*: Computes weighted two-factor quality score (`40% Conceptual Recall + 60% Code Execution Accuracy`) and updates SuperMemo-2 interval and ease factor.
+  - **Schema & Controller Extension**: Extended `Question` schema `reviewHistory` with `conceptualScore`, `codeScore`, and `feedback` for long-term retention analytics.
+
 ## Next Logical Steps
-1. 3D Knowledge Graph (`react-force-graph`) to visualize pattern dependencies and prerequisite hierarchies.
-2. Automated CI/Pre-commit hook checking UI changes against the 10-point Quality Checklist.
-3. Webhook/Chrome Extension background sync for automatic logging on problem submission acceptance.
+1. **Paid Tier Conversational Socratic Agent (LangGraph)**: Stateful mock interviewer agent engaging in turn-based dialogue, probing algorithmic gaps with adversarial counter test cases, and evaluating code (Detailed architecture specified in `docs/PRO_TIER_SOCRATIC_AGENT_PLAN.md`).
+2. 3D Knowledge Graph (`react-force-graph`) to visualize pattern dependencies and prerequisite hierarchies.
+3. Automated CI/Pre-commit hook checking UI changes against the 10-point Quality Checklist.
+4. Webhook/Chrome Extension background sync for automatic logging on problem submission acceptance.
 
 ## Key Decisions
 - Shifted away from standard self-reported flashcard mechanics. By forcing the user to type out the logic in Natural Language and having a friendly AI grade it, we eliminate the "illusion of competence".
