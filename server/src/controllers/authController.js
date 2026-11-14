@@ -527,8 +527,18 @@ export const demoReset = async (req, res) => {
 // --- Public Google Client ID Discovery Handler ---
 export const getGoogleClientId = async (req, res) => {
   try {
-    const clientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '';
-    res.json({ clientId });
+    let clientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '';
+    const matchingKeys = [];
+    for (const [key, val] of Object.entries(process.env)) {
+      const k = key.toLowerCase();
+      if ((k.includes('google') || k.includes('oauth') || k.includes('client')) && !k.includes('secret')) {
+        matchingKeys.push({ key, hasVal: !!val, length: val ? val.length : 0 });
+        if (!clientId && val) {
+          clientId = val.trim().replace(/^["']|["']$/g, '');
+        }
+      }
+    }
+    res.json({ clientId, debugMatchingKeys: matchingKeys });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
