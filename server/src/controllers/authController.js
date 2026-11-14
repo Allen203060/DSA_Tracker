@@ -155,12 +155,11 @@ export const googleAuth = async (req, res) => {
 
     if (!user) {
       // Check if user exists by googleId or registered email
-      user = await User.findOne({ 
-        $or: [
-          { googleId },
-          { email: email?.toLowerCase() }
-        ]
-      });
+      const matchConditions = [{ googleId }];
+      if (email) {
+        matchConditions.push({ email: email.toLowerCase() });
+      }
+      user = await User.findOne({ $or: matchConditions });
     }
 
     if (!user) {
