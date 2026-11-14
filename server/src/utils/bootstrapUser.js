@@ -302,13 +302,28 @@ export const bootstrapUser = async () => {
         username: adminUsername,
         displayName: 'Admin',
         password: defaultPassword,
+        email: process.env.ADMIN_EMAIL || 'allenmanoj2006@gmail.com',
         recoveryKey: recoveryKey
       });
       console.log(`[Bootstrap] 👤 Initialized admin account: ${adminUsername}`);
     }
 
-    // Safely migrate all unassigned questions if an admin user exists
+    // Ensure existing admin account has recovery email and recovery key populated
     if (allenUser) {
+      let needsSave = false;
+      if (!allenUser.email) {
+        allenUser.email = process.env.ADMIN_EMAIL || 'allenmanoj2006@gmail.com';
+        needsSave = true;
+      }
+      if (!allenUser.recoveryKey) {
+        allenUser.recoveryKey = crypto.randomBytes(16).toString('hex');
+        needsSave = true;
+      }
+      if (needsSave) {
+        await allenUser.save();
+      }
+
+      // Safely migrate all unassigned questions if an admin user exists
       const unassignedCount = await Question.countDocuments({
         $or: [{ userId: { $exists: false } }, { userId: null }]
       });

@@ -549,6 +549,63 @@ Development-convenience defaults (hardcoded bootstrap accounts, deterministic re
 **Key Takeaway (Interview Insight):**
 Security is not an afterthought or a single middleware. Defense-in-depth requires fail-closed architecture: never fall back to static secrets in production, cryptographically decouple recovery mechanisms from usernames, enforce strict rate limits on expensive LLM proxy endpoints to prevent financial denial of service, and validate network boundaries against SSRF before making outbound requests.
 
+## Challenge 37: Seamless Google Account Linking for Existing Registered Users & Lockout Prevention
+
+**The Problem:**
+Users who originally registered on Revalgo using standard credentials (username and password) had no mechanism to link their Google account. If they subsequently clicked "Continue with Google", the system could not correlate the identity (since existing accounts had neither a stored `googleId` nor necessarily a matching email address), creating a duplicate, fragmented account and separating the user from their revision queue, streak data, and code solutions. Furthermore, allowing an OAuth-only user to disconnect their Google account without an established password would cause permanent account lockout.
+
+**Root Cause:**
+OAuth identity resolution relied strictly on `{ $or: [{ googleId }, { email }] }`. When neither field was populated in legacy local accounts, OAuth sign-in defaulted to creating a new user record. Additionally, bidirectional account linking lacked dedicated endpoints to associate or dissociate Google identities for an already-authenticated session.
+
+**Solution:**
+1. **Authenticated Linking Endpoint (`POST /api/auth/link-google`)**:
+   - Requires active JWT Bearer authentication (`requireAuth`).
+   - Verifies Google OAuth `id_token` with Google's official tokeninfo service (`https://oauth2.googleapis.com/tokeninfo`).
+   - Detects account collisions: if the Google ID is already linked to another username, it returns a 409 Conflict.
+   - Saves `googleId`, `email`, and `avatar` directly to the authenticated user's record.
+2. **Lockout-Protected Unlinking Endpoint (`POST /api/auth/unlink-google`)**:
+   - Inspects `user.password` before allowing Google disconnection. If no local password exists, it rejects the request (`400 Bad Request: Please set a password before disconnecting your Google account`).
+   - Clears `googleId` upon verification and synchronizes user state.
+3. **1-Step Sign-In Linking (`POST /api/auth/google`)**:
+   - Updated `googleAuth` to support `{ credential, linkUsername, linkPassword }`.
+   - Re-verifies local password via `user.comparePassword(linkPassword)` before associating the Google ID and issuing a new JWT.
+4. **Interactive Profile & Sign-In UI**:
+   - Added a Google Account Integration Card in the Profile view displaying live connection status (Connected badge + email or Disconnect action).
+   - Added a `Link my existing credentials with Google` checkbox in the Sign-In view.
+   - Implemented synchronized React refs (`useRef`) to ensure OAuth callbacks access latest credential inputs without stale closures.
+
+**Key Takeaway (Interview Insight):**
+Identity federation between local password auth and third-party OAuth providers requires two non-negotiable security guardrails: (1) **Ownership Verification**—never link an OAuth identity to an existing account without re-verifying existing credentials or requiring an authenticated session to prevent account takeover via email spoofing, and (2) **Lockout Guard**—never permit disconnecting an OAuth provider unless an alternate valid authentication factor (like a local password or recovery key) is verified.
+
+## Challenge 38: Deployed Frontend CORS 500 Failures & Google OAuth Password Recovery
+
+**The Problem:**
+Users were unable to log in from browser deployments despite credentials matching the database hash. Furthermore, users who lost or never received their 32-character `recoveryKey` had no recourse to recover or reset their password.
+
+**Root Cause:**
+1. **CORS Crash via `callback(new Error(...))`**: The CORS origin verifier threw an explicit error when receiving requests from unlisted web clients (e.g. Vercel or Render frontends). In Express, throwing an error inside the CORS middleware routes to the internal error handler, responding with `500 Internal Server Error` during preflight `OPTIONS` requests, causing browsers to abort the login attempt before reaching the controller.
+2. **Missing Admin Recovery Attributes**: The legacy `allen` account had `email: undefined` and `recoveryKey: undefined` in the database, preventing standard recovery key validation.
+3. **No OAuth Recovery Mechanism**: The forgot password interface exclusively required a 32-character hexadecimal key, offering no OAuth verification path.
+
+**Solution:**
+1. **Permissive Production CORS Pattern**:
+   - Expanded allowed origins to regex match all legitimate client platforms: `*.vercel.app`, `*.onrender.com`, `*.pages.dev`, `*.netlify.app`, `chrome-extension://*`, and `localhost:*`.
+   - Replaced `callback(new Error(...))` with `callback(null, false)`, correctly adhering to CORS specifications without triggering 500 server crashes.
+2. **Google Password Recovery Endpoint (`POST /api/auth/reset-password-google`)**:
+   - Accepts Google OAuth `credential` token, optional `username`, and `newPassword`.
+   - Verifies Google token cryptographically with Google Identity Services.
+   - Matches user via `googleId` or registered recovery `email`.
+   - Automatically resets password, binds Google identity, and issues authenticated session token.
+3. **Dual-Method Recovery UI**:
+   - Added a segmented toggle in `authMode === 'forgot'` between **Google Recovery** (1-Click) and **Recovery Key** (manual 32-char hex fallback).
+4. **Database Admin Auto-Healing**:
+   - Seeded `allen` with `email: 'allenmanoj2006@gmail.com'` and generated valid CSPRNG recovery keys in both local MongoDB and Atlas.
+
+**Key Takeaway (Interview Insight):**
+In Express, middleware callbacks follow distinct semantics: passing an `Error` to `callback(err)` signals a fatal server failure that invokes the global error handler (`HTTP 500`), whereas passing `callback(null, false)` signals a graceful policy rejection. For authentication recovery, combining federated OAuth verification with credential reset bridges the gap between third-party SSO and traditional password auth without forcing users to retain cumbersome manual recovery secrets.
+
+
+
 
 
 

@@ -21,7 +21,19 @@ import {
   importProblemFromUrl, 
   searchProblems 
 } from '../controllers/importController.js';
-import { register, login, getMe, googleAuth, resetPassword, changePassword, demoLogin, demoReset } from '../controllers/authController.js';
+import { 
+  register, 
+  login, 
+  getMe, 
+  googleAuth, 
+  linkGoogleAccount,
+  unlinkGoogleAccount,
+  resetPassword, 
+  resetPasswordWithGoogle,
+  changePassword, 
+  demoLogin, 
+  demoReset 
+} from '../controllers/authController.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -37,7 +49,10 @@ router.post('/auth/login', login);
 router.post('/auth/demo', demoLogin);
 router.post('/auth/demo/reset', demoReset);
 router.post('/auth/google', googleAuth);
+router.post('/auth/link-google', requireAuth, linkGoogleAccount);
+router.post('/auth/unlink-google', requireAuth, unlinkGoogleAccount);
 router.post('/auth/reset-password', resetPassword);
+router.post('/auth/reset-password-google', resetPasswordWithGoogle);
 router.post('/auth/change-password', requireAuth, changePassword);
 router.get('/auth/me', requireAuth, getMe);
 

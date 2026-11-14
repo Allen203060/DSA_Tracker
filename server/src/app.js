@@ -17,17 +17,24 @@ const allowedOrigins = [
   'http://127.0.0.1:3000'
 ].filter(Boolean);
 
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (origin.startsWith('chrome-extension://')) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  // Allow localhost / 127.0.0.1 on any port
+  if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return true;
+  // Allow production frontends on standard web hosting domains (Vercel, Render, Cloudflare Pages, Netlify)
+  if (/^https:\/\/[a-zA-Z0-9-]+\.(vercel\.app|onrender\.com|pages\.dev|netlify\.app)$/.test(origin)) return true;
+  return false;
+};
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow non-browser requests (mobile, server-to-server, background workers)
-    if (!origin) return callback(null, true);
-    // Allow Chrome Extension companion requests
-    if (origin.startsWith('chrome-extension://')) return callback(null, true);
-    // Allow configured production client or local dev hosts
-    if (allowedOrigins.includes(origin) || (process.env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))) {
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
-    return callback(new Error('Blocked by CORS policy: Origin not authorized.'));
+    // Return false without throwing a 500 error for unauthorized origins
+    return callback(null, false);
   },
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']

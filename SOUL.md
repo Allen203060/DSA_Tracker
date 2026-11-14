@@ -159,7 +159,7 @@
     - *Stage 4 (Composite SM-2 Rescheduling)*: Computes weighted two-factor quality score (`40% Conceptual Recall + 60% Code Execution Accuracy`) and updates SuperMemo-2 interval and ease factor.
   - **Schema & Controller Extension**: Extended `Question` schema `reviewHistory` with `conceptualScore`, `codeScore`, and `feedback` for long-term retention analytics.
 
-- Phase 29: Full-System Security Hardening & Zero-Backdoor Guardrails (Current):
+- Phase 29: Full-System Security Hardening & Zero-Backdoor Guardrails:
   - **Cryptographic Account Recovery**: Replaced deterministic recovery keys with 32-character CSPRNG tokens (`crypto.randomBytes(16).toString('hex')`) and removed UI leakage.
   - **Strict Admin Bootstrapping**: Disallowed default static passwords on startup; requires explicit environment variables in production.
   - **Fail-Closed Multi-Tenant Isolation**: Hardened `getUserFilter` to return `{ userId: null }` (matching zero records) if ever invoked without an authenticated user.
@@ -167,6 +167,19 @@
   - **SSRF Network Boundary**: Enforced `isSafePublicUrl` blocking loopback, RFC 1918 private subnets, and AWS/GCP/Azure link-local metadata endpoints (`169.254.169.254`).
   - **Zero Cloud Endpoint Disclosure**: Purged cleartext production backend domains from extension scripts and re-bundled `revalgo-companion-extension.zip`.
   - **Restricted CORS Origin Policy**: Replaced reflective `origin: true` with strict whitelist checks for companion extensions, web clients, and local development ports.
+
+- Phase 30: Google Account Linking & Lockout-Safe Profile OAuth Controls:
+  - **Authenticated Google Account Linking (`POST /api/auth/link-google`)**: Allows users registered via username/password to connect their Google account, verifying Google ID tokens with Google's tokeninfo API and checking for conflicts.
+  - **Lockout-Protected Unlinking (`POST /api/auth/unlink-google`)**: Prevents account lockout by strictly verifying the user has an existing password before permitting Google account disconnection.
+  - **1-Step Sign-In Account Linking (`POST /api/auth/google`)**: Supports optional `{ linkUsername, linkPassword }` during Google authentication, verifying existing credentials and linking the Google ID in one atomic transaction.
+  - **Profile & Sign-In UI Integration**: Added a Google Account management card to the Profile modal (Connected badge, email, Connect/Disconnect controls) and a `Link my existing credentials with Google` checkbox in the login form.
+  - **Comprehensive Auth Testing**: Added automated unit and integration tests covering linking, unlinking, lockout defense, and credential-validated sign-in linking (36/36 tests passing).
+
+- Phase 31: Google OAuth Password Recovery & Seamless Production CORS (Current):
+  - **Google-Powered Password Recovery (`POST /api/auth/reset-password-google`)**: Allows users to recover and reset lost account passwords by proving identity through Google OAuth. Cryptographically verifies Google tokens, validates email/googleId ownership against the account, updates the password, and logs the user in.
+  - **Dual-Mode Recovery UI**: Added interactive segmented switcher in the Forgot Password view allowing users to choose between 1-Click Google Recovery and the legacy 32-character hexadecimal recovery key.
+  - **Production CORS Resilience**: Broadened CORS origin matcher in `server/src/app.js` to support `.vercel.app`, `.onrender.com`, `.pages.dev`, `.netlify.app`, and `localhost:*`. Eliminated 500 crashes by replacing `callback(new Error(...))` with standard `callback(null, false)`.
+  - **Database Admin Reconciliation**: Auto-populated `allen`'s `email` (`allenmanoj2006@gmail.com`) and CSPRNG `recoveryKey` across both local MongoDB and MongoDB Atlas, enabling instant Google OAuth matching.
 
 ## Next Logical Steps
 1. **Paid Tier Conversational Socratic Agent (LangGraph)**: Stateful mock interviewer agent engaging in turn-based dialogue, probing algorithmic gaps with adversarial counter test cases, and evaluating code (Detailed architecture specified in `docs/PRO_TIER_SOCRATIC_AGENT_PLAN.md`).
