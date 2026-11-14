@@ -181,11 +181,15 @@
   - **Production CORS Resilience**: Broadened CORS origin matcher in `server/src/app.js` to support `.vercel.app`, `.onrender.com`, `.pages.dev`, `.netlify.app`, and `localhost:*`. Eliminated 500 crashes by replacing `callback(new Error(...))` with standard `callback(null, false)`.
   - **Database Admin Reconciliation**: Auto-populated `allen`'s `email` (`allenmanoj2006@gmail.com`) and CSPRNG `recoveryKey` across both local MongoDB and MongoDB Atlas, enabling instant Google OAuth matching.
 
-- Phase 32: Prominent Google Account Linking, Dedicated Link Tab, Instant Browser OAuth Activation & Lockout-Safe Unlinking (Current):
+- Phase 32: Prominent Google Account Linking, Dedicated Link Tab, Instant Browser OAuth Activation & Lockout-Safe Unlinking:
   - **Dedicated "Link Google" Tab & Action Flow**: Elevated account linking from a minor checkbox to a first-class citizen with a dedicated 3-tab auth switcher (`[ Sign In ]`, `[ Link Google ]`, `[ Register ]`) and in-form shortcut button. Allows existing users to enter username and password to link their Google account atomically during sign-in.
   - **Prominent Profile Google Integration & Explicit Unlink**: Overhauled the Profile modal's Google Account card with clear status badges (`Connected with Google` vs `Not Linked`), displaying the linked Google identity, benefits of linking, and an explicit **"Unlink Google Account"** button with confirmation and password lockout protection.
   - **Instant Browser OAuth Client ID Activation**: Integrated browser-persisted OAuth Client ID configuration (`revalgo_google_client_id`) directly into the setup assistant modal, allowing users to activate 1-click Google sign-in and account linking instantly in their browser without redeploying Vercel.
   - **DOM Layout & Lifecycle Synchronization**: Resolved button initialization race conditions by decoupling modal visibility checks, leveraging `effectiveGoogleClientId`, and utilizing mounted timeout guards for seamless Google Identity SDK rendering across tabs.
+
+- Phase 33: Cloud Prefix Independence & Resilient Build-Time Injection (Current):
+  - **Prefix-Agnostic Build Definition (`vite.config.js`)**: Configured Vite's `define` compiler option to alias `import.meta.env.VITE_GOOGLE_CLIENT_ID` to both `VITE_GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_ID`. This insulates deployments against Vercel's automatic framework prefix removal prompt, ensuring Client IDs are baked into production assets regardless of variable naming.
+  - **Dynamic Server-Side ID Discovery**: Added `/api/auth/google-client-id` with fuzzy environment resolution, providing client-side runtime auto-discovery if build-time variables are omitted.
 
 ## Next Logical Steps
 1. **Paid Tier Conversational Socratic Agent (LangGraph)**: Stateful mock interviewer agent engaging in turn-based dialogue, probing algorithmic gaps with adversarial counter test cases, and evaluating code (Detailed architecture specified in `docs/PRO_TIER_SOCRATIC_AGENT_PLAN.md`).

@@ -630,6 +630,25 @@ Users who registered with standard username/password credentials were unable to 
 **Key Takeaway (Interview Insight):**
 When bridging external third-party SDKs (such as Google Identity Services or Stripe) with React, third-party callbacks register once with the external runtime and close over the component scope. Using the `useRef` synchronization pattern (`ref.current = state`) ensures external asynchronous callbacks always access the freshest React state without requiring aggressive SDK re-initializations that disrupt UI focus and DOM stability.
 
+## Challenge 40: Framework Prefix Stripping & Build-Time Injection in Cloud Deployments
+
+**The Problem:**
+After saving the Google OAuth Client ID in Vercel's environment variables dashboard, the frontend continued to show the configuration modal asking for a Client ID, failing to render the Google Sign-In button even after deploying.
+
+**Root Cause:**
+1. **Framework Prefix Stripping via Vercel Security Prompt**: When adding `VITE_GOOGLE_CLIENT_ID`, Vercel displayed a security notice (*"Remove the public framework prefix to keep this value private... If that's safe, change the variable to Config"*). Following Vercel's prompt stripped `VITE_`, renaming the variable to `GOOGLE_CLIENT_ID`. By default, Vite strictly ignores and filters out all environment variables that do not start with `VITE_`, rendering `import.meta.env.VITE_GOOGLE_CLIENT_ID` as `undefined` at build time.
+2. **Build-Time Compilation vs Runtime Environment Variables**: Unlike traditional Node.js backends that read `process.env` on every request, single-page React applications statically replace environment variables with string literals during `npm run build`. Saving a variable in Vercel does not retroactively update existing static bundles; a fresh build is required.
+
+**Solution:**
+1. **Explicit Build-Time Variable Definition**:
+   - In `client/vite.config.js`, leveraged Vite's `define` compiler option to bind `import.meta.env.VITE_GOOGLE_CLIENT_ID` to both `process.env.VITE_GOOGLE_CLIENT_ID` and `process.env.GOOGLE_CLIENT_ID`.
+   - This ensures that whether a developer names the variable with or without the `VITE_` prefix, Vite will successfully compile the Client ID into the production bundle.
+2. **Dynamic Backend Auto-Discovery Fallback**:
+   - Implemented `GET /api/auth/google-client-id` with fuzzy environment variable resolution, allowing the client to dynamically fetch the ID from the backend if it was omitted from the frontend build.
+
+**Key Takeaway (Interview Insight):**
+Cloud platforms often employ heuristics to prevent secret leakage (e.g. flagging `NEXT_PUBLIC_` or `VITE_`). In monorepo architectures where frontend and backend environment variables may drift, configuring build tooling (`define` in Vite/Webpack) to bridge multiple naming conventions provides resilient developer experience without sacrificing production security boundaries.
+
 
 
 

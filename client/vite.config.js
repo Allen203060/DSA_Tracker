@@ -12,6 +12,16 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
     ],
+    // Expose both VITE_GOOGLE_CLIENT_ID and GOOGLE_CLIENT_ID (in case framework prefix was removed in Vercel)
+    define: {
+      'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(
+        process.env.VITE_GOOGLE_CLIENT_ID ||
+        process.env.GOOGLE_CLIENT_ID ||
+        env.VITE_GOOGLE_CLIENT_ID ||
+        env.GOOGLE_CLIENT_ID ||
+        ''
+      ),
+    },
     // Proxy /api requests dynamically (http://server:5000 in Docker, http://localhost:5000 locally)
     server: {
       proxy: {
