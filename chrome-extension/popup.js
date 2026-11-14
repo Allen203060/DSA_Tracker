@@ -6,7 +6,6 @@ let capturedDifficulty = 'Medium';
 let capturedTestCases = [];
 
 async function getResolvedServerUrl() {
-  const CLOUD_URL = atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
   try {
     const stored = await chrome.storage.local.get(['revalgo_server_url']);
     if (stored.revalgo_server_url && typeof stored.revalgo_server_url === 'string') {
@@ -16,7 +15,7 @@ async function getResolvedServerUrl() {
       }
     }
   } catch (_) {}
-  return CLOUD_URL;
+  return 'http://localhost:5000';
 }
 
 function detectCodeLanguage(code) {
@@ -119,11 +118,7 @@ async function initPopup() {
                 const tok = localStorage.getItem('revalgo_token');
                 let sUrl = localStorage.getItem('revalgo_api_endpoint');
                 if (!sUrl && window.location.origin) {
-                  sUrl = window.location.origin.includes('localhost') ? 'http://localhost:5000' : atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
-                }
-                // Sanitize frontend origins to official backend API
-                if (sUrl && !sUrl.includes('localhost') && !sUrl.includes('127.0.0.1') && !sUrl.includes(':5000')) {
-                  sUrl = atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
+                  sUrl = window.location.origin.includes('localhost') ? 'http://localhost:5000' : window.location.origin;
                 }
                 if (tok || sUrl) {
                   return {

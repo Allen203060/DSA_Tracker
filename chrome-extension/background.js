@@ -2,7 +2,6 @@
 // Manages persistent asynchronous problem logging and native desktop notifications
 
 async function getResolvedServerUrl() {
-  const CLOUD_URL = atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
   try {
     const stored = await chrome.storage.local.get(['revalgo_server_url']);
     if (stored.revalgo_server_url && typeof stored.revalgo_server_url === 'string') {
@@ -12,7 +11,7 @@ async function getResolvedServerUrl() {
       }
     }
   } catch (_) {}
-  return CLOUD_URL;
+  return 'http://localhost:5000';
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
