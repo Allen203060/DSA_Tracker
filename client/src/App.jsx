@@ -91,6 +91,19 @@ function App() {
   });
   const [tempGoogleClientId, setTempGoogleClientId] = useState('');
   const effectiveGoogleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || customGoogleClientId;
+
+  // Auto-discover Google OAuth Client ID from backend if not defined in frontend env or localStorage
+  useEffect(() => {
+    if (!import.meta.env.VITE_GOOGLE_CLIENT_ID && !customGoogleClientId) {
+      axios.get('/api/auth/google-client-id')
+        .then(res => {
+          if (res.data?.clientId) {
+            setCustomGoogleClientId(res.data.clientId);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [customGoogleClientId]);
   
   // Authenticated profile password modification state
   const [showChangePassword, setShowChangePassword] = useState(false);

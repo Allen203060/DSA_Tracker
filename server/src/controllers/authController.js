@@ -523,3 +523,13 @@ export const demoReset = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// --- Public Google Client ID Discovery Handler ---
+export const getGoogleClientId = async (req, res) => {
+  try {
+    const clientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '';
+    res.json({ clientId });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

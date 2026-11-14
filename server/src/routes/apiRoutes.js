@@ -32,7 +32,8 @@ import {
   resetPasswordWithGoogle,
   changePassword, 
   demoLogin, 
-  demoReset 
+  demoReset,
+  getGoogleClientId 
 } from '../controllers/authController.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -42,6 +43,9 @@ const router = express.Router();
 router.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
 });
+
+// --- Public Google OAuth Client ID Discovery ---
+router.get('/auth/google-client-id', getGoogleClientId);
 
 // --- Authentication Endpoints ---
 router.post('/auth/register', register);
