@@ -125,3 +125,4 @@ export interface SocraticInterviewState {
 - Configure persistent memory saver (`MemorySaver` or MongoDB checkpointer).
 - Wire WebSocket or Server-Sent Events (SSE) route: `POST /api/ai/socratic-interview/chat` for real-time streaming tokens.
 - Add Pro Tier toggle badge on Question Cards: `[ ⚡ Switch to Socratic Mock Mode ]`.
+

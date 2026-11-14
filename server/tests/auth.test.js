@@ -65,7 +65,7 @@ describe('Auth API Endpoints (Login, Reset, Change, Google)', () => {
   });
 
   it('should reset password with valid recovery key', async () => {
-    await request(app)
+    const regRes = await request(app)
       .post('/api/auth/register')
       .send({
         username: 'dave',
@@ -78,7 +78,7 @@ describe('Auth API Endpoints (Login, Reset, Change, Google)', () => {
       .post('/api/auth/reset-password')
       .send({
         username: 'dave',
-        recoveryKey: 'dave-recovery',
+        recoveryKey: regRes.body.recoveryKey,
         newPassword: 'newsecurepassword'
       });
 
@@ -157,6 +157,32 @@ describe('Auth API Endpoints (Login, Reset, Change, Google)', () => {
 
     expect(resetRes.status).toBe(200);
     expect(resetRes.body.message).toContain('reset');
+  });
+
+  it('should prevent password reset and password modification for demo account', async () => {
+    const resetRes = await request(app)
+      .post('/api/auth/reset-password')
+      .send({
+        username: 'demo',
+        recoveryKey: 'any-key',
+        newPassword: 'hackdemo123'
+      });
+
+    expect(resetRes.status).toBe(403);
+    expect(resetRes.body.error).toContain('demo');
+
+    // Attempt to change password via authenticated endpoint as demo
+    const demoLogin = await request(app).post('/api/auth/demo');
+    const changeRes = await request(app)
+      .post('/api/auth/change-password')
+      .set('Authorization', `Bearer ${demoLogin.body.token}`)
+      .send({
+        currentPassword: 'demo_guest_pass_2026',
+        newPassword: 'newdemopassword123'
+      });
+
+    expect(changeRes.status).toBe(403);
+    expect(changeRes.body.error).toContain('demo');
   });
 });
 

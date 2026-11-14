@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import Question from '../models/Question.js';
+import crypto from 'crypto';
 
 export const seedDemoQuestions = async (userId) => {
   const now = Date.now();
@@ -270,9 +271,9 @@ export const bootstrapDemoAccount = async () => {
       demoUser = await User.create({
         username: demoUsername,
         displayName: 'Demo Explorer',
-        password: process.env.DEMO_USER_PASSWORD || 'demo_guest_pass_2026',
+        password: process.env.DEMO_USER_PASSWORD || crypto.randomBytes(16).toString('hex'),
         email: 'demo@revalgo.dev',
-        recoveryKey: 'demo-recovery-2026'
+        recoveryKey: crypto.randomBytes(16).toString('hex')
       });
       console.log(`[Bootstrap] 🌟 Initialized official guest demo account: Demo Explorer (username: "demo")`);
     }
@@ -291,36 +292,34 @@ export const bootstrapDemoAccount = async () => {
 
 export const bootstrapUser = async () => {
   try {
-    const adminUsername = 'allen';
+    const adminUsername = process.env.ADMIN_USERNAME || 'allen';
     let allenUser = await User.findOne({ username: adminUsername });
 
-    if (!allenUser) {
+    if (!allenUser && (process.env.DEFAULT_ALLEN_PASSWORD || process.env.NODE_ENV !== 'production')) {
       const defaultPassword = process.env.DEFAULT_ALLEN_PASSWORD || 'allen123';
+      const recoveryKey = process.env.ADMIN_RECOVERY_KEY || crypto.randomBytes(16).toString('hex');
       allenUser = await User.create({
         username: adminUsername,
-        displayName: 'Allen',
+        displayName: 'Admin',
         password: defaultPassword,
-        recoveryKey: 'allen-recovery-2026'
+        recoveryKey: recoveryKey
       });
-      console.log(`[Bootstrap] 👤 Initialized default account: Allen (username: "allen")`);
-    } else if (!allenUser.recoveryKey) {
-      allenUser.recoveryKey = 'allen-recovery-2026';
-      await allenUser.save();
+      console.log(`[Bootstrap] 👤 Initialized admin account: ${adminUsername}`);
     }
 
-    // Safely migrate all questions without a userId to user Allen
-    const unassignedCount = await Question.countDocuments({
-      $or: [{ userId: { $exists: false } }, { userId: null }]
-    });
+    // Safely migrate all unassigned questions if an admin user exists
+    if (allenUser) {
+      const unassignedCount = await Question.countDocuments({
+        $or: [{ userId: { $exists: false } }, { userId: null }]
+      });
 
-    if (unassignedCount > 0) {
-      const result = await Question.updateMany(
-        { $or: [{ userId: { $exists: false } }, { userId: null }] },
-        { $set: { userId: allenUser._id } }
-      );
-      console.log(`[Bootstrap] 🛡️ Successfully migrated and secured ${result.modifiedCount} question(s) under user Allen!`);
-    } else {
-      console.log(`[Bootstrap] 🛡️ All existing questions are already secured under their respective user accounts.`);
+      if (unassignedCount > 0) {
+        const result = await Question.updateMany(
+          { $or: [{ userId: { $exists: false } }, { userId: null }] },
+          { $set: { userId: allenUser._id } }
+        );
+        console.log(`[Bootstrap] 🛡️ Successfully migrated and secured ${result.modifiedCount} question(s) under user ${adminUsername}!`);
+      }
     }
 
     // Bootstrap Demo Explorer account with showcase questions

@@ -106,10 +106,9 @@ async function initPopup() {
       for (const t of candidateTabs) {
         if (!t.id || !t.url) continue;
         if (t.url.startsWith('chrome://') || t.url.startsWith('edge://') || t.url.startsWith('about:') || t.url.startsWith('chrome-extension://')) continue;
-        const isRevalgoCandidate = t.url.includes('onrender.com') ||
+        const isRevalgoCandidate = (t.title && t.title.toLowerCase().includes('revalgo')) ||
                                    t.url.includes('localhost') ||
-                                   t.url.includes('127.0.0.1') ||
-                                   (t.title && t.title.toLowerCase().includes('revalgo'));
+                                   t.url.includes('127.0.0.1');
         if (!isRevalgoCandidate) continue;
 
         try {
@@ -123,7 +122,7 @@ async function initPopup() {
                   sUrl = window.location.origin.includes('localhost') ? 'http://localhost:5000' : atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
                 }
                 // Sanitize frontend origins to official backend API
-                if (sUrl && !sUrl.includes('localhost') && !sUrl.includes('revalgo-api.onrender.com') && !sUrl.includes(':5000')) {
+                if (sUrl && !sUrl.includes('localhost') && !sUrl.includes('127.0.0.1') && !sUrl.includes(':5000')) {
                   sUrl = atob('aHR0cHM6Ly9yZXZhbGdvLWFwaS5vbnJlbmRlci5jb20=');
                 }
                 if (tok || sUrl) {

@@ -61,6 +61,26 @@ describe('Universal Import & Live Search API Endpoints', () => {
     expect(res.body.difficulty).toBe('Medium');
   });
 
+  it('should reject SSRF attempts targeting localhost, private subnets, or cloud metadata endpoints', async () => {
+    const maliciousUrls = [
+      'http://localhost:5000/api/health',
+      'http://127.0.0.1:5000/admin',
+      'http://169.254.169.254/latest/meta-data/',
+      'http://10.0.0.1/internal-db',
+      'ftp://example.com/test'
+    ];
+
+    for (const url of maliciousUrls) {
+      const res = await request(app)
+        .post('/api/import/url')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ url });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('Disallowed or unsafe');
+    }
+  });
+
   it('should return live search results for problem keyword or number', async () => {
     const res = await request(app)
       .get('/api/import/search?query=739')

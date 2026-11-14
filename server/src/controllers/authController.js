@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import Question from '../models/Question.js';
 import { generateToken } from '../middleware/auth.js';
 import { bootstrapDemoAccount, seedDemoQuestions } from '../utils/bootstrapUser.js';
+import crypto from 'crypto';
 
 export const register = async (req, res) => {
   try {
@@ -25,11 +26,12 @@ export const register = async (req, res) => {
       return res.status(409).json({ error: 'Username already taken. Please choose another.' });
     }
 
+    const generatedRecoveryKey = crypto.randomBytes(16).toString('hex');
     const user = await User.create({
       username: cleanUsername,
       displayName: (displayName && displayName.trim()) || username.trim(),
       password,
-      recoveryKey: `${cleanUsername}-recovery`
+      recoveryKey: generatedRecoveryKey
     });
 
     const token = generateToken(user);
@@ -41,7 +43,8 @@ export const register = async (req, res) => {
         displayName: user.displayName,
         createdAt: user.createdAt
       },
-      token
+      token,
+      recoveryKey: generatedRecoveryKey
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -144,7 +147,7 @@ export const googleAuth = async (req, res) => {
         email: email?.toLowerCase(),
         googleId,
         avatar: picture || '',
-        recoveryKey: `${candidateUsername}-recovery`
+        recoveryKey: crypto.randomBytes(16).toString('hex')
       });
     } else {
       // Update existing user with googleId/avatar if missing
@@ -185,14 +188,17 @@ export const resetPassword = async (req, res) => {
     }
 
     const cleanUsername = username.trim().toLowerCase();
+    if (cleanUsername === 'demo') {
+      return res.status(403).json({ error: 'The demo explorer account cannot be reset.' });
+    }
+
     const user = await User.findOne({ username: cleanUsername });
     if (!user) {
       return res.status(404).json({ error: 'User account not found.' });
     }
 
-    // Verify recovery key
-    const expectedKey = user.recoveryKey || `${cleanUsername}-recovery`;
-    if (!recoveryKey || recoveryKey.trim() !== expectedKey.trim()) {
+    // Verify recovery key strictly against stored value
+    if (!user.recoveryKey || !recoveryKey || recoveryKey.trim() !== user.recoveryKey.trim()) {
       return res.status(403).json({ error: 'Invalid recovery key for this account.' });
     }
 
@@ -227,6 +233,10 @@ export const changePassword = async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
+    }
+
+    if (user.username === 'demo') {
+      return res.status(403).json({ error: 'The demo explorer account password cannot be changed.' });
     }
 
     if (user.password) {

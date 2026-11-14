@@ -515,6 +515,41 @@ Collapsing these two into a single prompt caused the "illusion of competence" (u
 **Key Takeaway (Interview Insight):**
 Spaced repetition for complex engineering domains cannot rely on simple flashcards. Disentangling conceptual retrieval from code implementation and weighting them into a composite quality score aligns with the Generation Effect and Cognitive Load Theory, dramatically increasing long-term retention and eliminating the illusion of competence.
 
+## Challenge 36: Full-System Security Hardening, Backdoor Remediation & SSRF / Quota Drain Defenses
+
+**The Problem:**
+Prior to sharing the application publicly, a security audit identified several critical vulnerabilities and information disclosure vectors:
+1. **Predictable Account Recovery Backdoor**: Recovery keys were generated deterministically as `${cleanUsername}-recovery`, and the UI placeholder literally revealed `allen-recovery-2026`, allowing anyone who knew a username to hijack accounts.
+2. **Hardcoded Admin Bootstrapping**: Default credentials (`allen123`) were seeded in `bootstrapUser.js` on server boot.
+3. **Insecure CORS & Fallback JWT Secret**: CORS reflected any origin (`origin: true`), and `JWT_SECRET` fell back to a publicly known static string.
+4. **Unmetered AI Endpoint Abuse**: Missing rate limiters on `/api/ai/*` left OpenRouter credits vulnerable to malicious drainage loops.
+5. **Server-Side Request Forgery (SSRF)**: `importProblemFromUrl` fetched arbitrary user-supplied URLs without verifying loopback or private cloud metadata ranges (`169.254.169.254`).
+6. **Backend Cloud URL Disclosure**: The companion extension code and downloadable ZIP contained plaintext production Render endpoints.
+
+**Root Cause:**
+Development-convenience defaults (hardcoded bootstrap accounts, deterministic recovery keys, open CORS) lingered in codebase paths without multi-tenant defense-in-depth and fail-closed security boundaries.
+
+**Solution:**
+1. **Cryptographic Recovery Keys & Demo Account Protection**:
+   - Replaced deterministic strings with `crypto.randomBytes(16).toString('hex')` (32 characters).
+   - Enforced strict validation in `resetPassword` and blocked demo account password modification/reset.
+2. **Fail-Closed JWT Secret & Tenant Filtering**:
+   - Refused production startup if `process.env.JWT_SECRET` is unset.
+   - Refactored `getUserFilter` to return `{ userId: null }` (matching zero records) if called without user context.
+3. **Whitelisted CORS & Strict Rate Limiting**:
+   - Replaced reflective CORS with origin validation covering companion extensions, explicit production domains, and local dev ports.
+   - Added `express-rate-limit` for authentication routes (30 requests / 15 min) and AI endpoints (40 requests / 10 min).
+4. **SSRF Guard (`isSafePublicUrl`)**:
+   - Blocked loopback (`localhost`, `127.0.0.1`), RFC 1918 private subnets (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), and AWS/GCP/Azure link-local metadata endpoints (`169.254.169.254`).
+5. **Zero-Disclosure Extension Sanitization**:
+   - Scrubbed all hardcoded cloud domains from `chrome-extension/popup.js` and regenerated `revalgo-companion-extension.zip`.
+6. **Dependency Vulnerability Remediation**:
+   - Executed `npm audit fix`, resolving high and critical vulnerabilities across server and client dependencies.
+
+**Key Takeaway (Interview Insight):**
+Security is not an afterthought or a single middleware. Defense-in-depth requires fail-closed architecture: never fall back to static secrets in production, cryptographically decouple recovery mechanisms from usernames, enforce strict rate limits on expensive LLM proxy endpoints to prevent financial denial of service, and validate network boundaries against SSRF before making outbound requests.
+
+
 
 
 

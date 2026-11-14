@@ -2,12 +2,21 @@ import Question from '../models/Question.js';
 import Pattern from '../models/Pattern.js';
 import { cleanMarkdownNotes } from '../utils/cleanMarkdown.js';
 
-// Helper to filter queries by active authenticated user
-const getUserFilter = (req) => (req.user ? { userId: req.user._id } : {});
+// Helper to strictly filter queries by active authenticated user (fail-closed, never wide-open)
+const getUserFilter = (req) => {
+  if (!req.user || !req.user._id) {
+    return { userId: null };
+  }
+  return { userId: req.user._id };
+};
 
 // CREATE Question
 export const addQuestion = async (req, res) => {
   try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ error: "Unauthorized: Active user session required" });
+    }
+
     const { title, url, notes, enhancedNotes, topic, subtopic, difficulty, patternNames, code, codeLanguage, testCases } = req.body;
     
     // Find or create patterns

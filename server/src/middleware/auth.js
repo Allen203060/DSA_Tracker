@@ -1,7 +1,18 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'revalgo_jwt_secret_dev_2026_key';
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('[FATAL SECURITY ERROR] JWT_SECRET must be set in environment variables in production mode!');
+    }
+    return 'revalgo_jwt_dev_secret_local_only';
+  }
+  return secret;
+};
+
+export const JWT_SECRET = getJwtSecret();
 
 export const generateToken = (user) => {
   return jwt.sign(

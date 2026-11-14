@@ -151,13 +151,22 @@
 
 
 
-- Phase 28: Multi-Stage Active Review Pipeline (Current):
+- Phase 28: Multi-Stage Active Review Pipeline:
   - **Structured 4-Stage Progressive Recall Wizard**: Replaced single-textarea review modal with an active recall flow:
     - *Stage 1 (Conceptual Retrieval)*: User explains core approach, pattern, and invariants in natural language, supported by 1-click prompt helper chips (`💡 Core Invariant`, `🧩 Data Structure & State`, `⚠️ Edge Cases`, `⏱️ Time & Space`).
     - *Stage 2 (AI Pedagogical Critique)*: Powered by `POST /api/ai/critique-approach`, provides conceptual recall grading (0-5), verdict category, breakdown of strengths and gaps, and a dedicated banner highlighting the core algorithmic invariant.
     - *Stage 3 (Hands-on Implementation)*: In-app code editor with language selection (C++, Python, Java, JS), external LeetCode direct link, and AI compiler simulation.
     - *Stage 4 (Composite SM-2 Rescheduling)*: Computes weighted two-factor quality score (`40% Conceptual Recall + 60% Code Execution Accuracy`) and updates SuperMemo-2 interval and ease factor.
   - **Schema & Controller Extension**: Extended `Question` schema `reviewHistory` with `conceptualScore`, `codeScore`, and `feedback` for long-term retention analytics.
+
+- Phase 29: Full-System Security Hardening & Zero-Backdoor Guardrails (Current):
+  - **Cryptographic Account Recovery**: Replaced deterministic recovery keys with 32-character CSPRNG tokens (`crypto.randomBytes(16).toString('hex')`) and removed UI leakage.
+  - **Strict Admin Bootstrapping**: Disallowed default static passwords on startup; requires explicit environment variables in production.
+  - **Fail-Closed Multi-Tenant Isolation**: Hardened `getUserFilter` to return `{ userId: null }` (matching zero records) if ever invoked without an authenticated user.
+  - **AI Quota & Auth Rate Limiting**: Added `express-rate-limit` to `/api/auth/*` (30 req / 15m) and `/api/ai/*` (40 req / 10m) preventing credential brute-forcing and OpenRouter quota draining.
+  - **SSRF Network Boundary**: Enforced `isSafePublicUrl` blocking loopback, RFC 1918 private subnets, and AWS/GCP/Azure link-local metadata endpoints (`169.254.169.254`).
+  - **Zero Cloud Endpoint Disclosure**: Purged cleartext production backend domains from extension scripts and re-bundled `revalgo-companion-extension.zip`.
+  - **Restricted CORS Origin Policy**: Replaced reflective `origin: true` with strict whitelist checks for companion extensions, web clients, and local development ports.
 
 ## Next Logical Steps
 1. **Paid Tier Conversational Socratic Agent (LangGraph)**: Stateful mock interviewer agent engaging in turn-based dialogue, probing algorithmic gaps with adversarial counter test cases, and evaluating code (Detailed architecture specified in `docs/PRO_TIER_SOCRATIC_AGENT_PLAN.md`).

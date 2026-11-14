@@ -1,5 +1,46 @@
 // Import Controller for LeetCode, GeeksforGeeks, and Universal DSA Problem Scraper
 
+const isSafePublicUrl = (rawUrl) => {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+    const hostname = parsed.hostname.toLowerCase();
+
+    // Disallow loopback, local, and metadata addresses (SSRF defense)
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname === '::1' ||
+      hostname.endsWith('.localhost') ||
+      hostname.endsWith('.local') ||
+      hostname.endsWith('.internal')
+    ) {
+      return false;
+    }
+
+    // Cloud metadata endpoints
+    if (hostname === '169.254.169.254' || hostname.startsWith('169.254.')) {
+      return false;
+    }
+
+    // Private IP ranges (RFC 1918)
+    if (
+      /^10\./.test(hostname) ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname) ||
+      /^192\.168\./.test(hostname)
+    ) {
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    return false;
+  }
+};
+
 const decodeHtml = (html) => {
   if (!html) return '';
   return html
@@ -39,6 +80,14 @@ export const importProblemFromUrl = async (req, res) => {
   }
 
   const cleanUrl = url.trim();
+  let normalizedUrl = cleanUrl;
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(cleanUrl)) {
+    normalizedUrl = `https://${cleanUrl}`;
+  }
+
+  if (!isSafePublicUrl(normalizedUrl)) {
+    return res.status(400).json({ error: 'Disallowed or unsafe URL destination.' });
+  }
 
   try {
     // 1. LEETCODE IMPORT

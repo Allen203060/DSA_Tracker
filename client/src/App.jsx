@@ -509,12 +509,17 @@ function App() {
           : { username: authUsername, password: authPassword, displayName: authDisplayName || authUsername };
 
         const res = await axios.post(endpoint, payload);
-        const { user, token } = res.data;
+        const { user, token, recoveryKey } = res.data;
 
         localStorage.setItem('revalgo_token', token);
         localStorage.setItem('revalgo_api_endpoint', getBackendApiOrigin());
         localStorage.setItem('revalgo_user', JSON.stringify(user));
         setCurrentUser(user);
+
+        if (recoveryKey) {
+          alert(`🔐 Important Account Recovery Key:\n\nPlease save this confidential key in a secure password manager. You will need it if you ever forget your password:\n\n${recoveryKey}`);
+        }
+
         setIsAuthModalOpen(false);
         setAuthPassword('');
         setAuthError('');
@@ -3473,7 +3478,7 @@ function App() {
                       <input
                         type="text"
                         required
-                        placeholder="e.g. allen"
+                        placeholder="e.g. developer_handle"
                         value={authUsername}
                         onChange={(e) => setAuthUsername(e.target.value)}
                         className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors font-mono"
@@ -3487,7 +3492,7 @@ function App() {
                       <input
                         type="text"
                         required
-                        placeholder="e.g. allen-recovery-2026"
+                        placeholder="Enter your confidential 32-character recovery key"
                         value={authRecoveryKey}
                         onChange={(e) => setAuthRecoveryKey(e.target.value)}
                         className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors font-mono"
@@ -3558,7 +3563,7 @@ function App() {
                       <input
                         type="text"
                         required
-                        placeholder="e.g. allen or bob"
+                        placeholder="e.g. alex_coder"
                         value={authUsername}
                         onChange={(e) => setAuthUsername(e.target.value)}
                         className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors font-mono"
