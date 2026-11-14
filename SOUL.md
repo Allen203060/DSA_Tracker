@@ -175,11 +175,17 @@
   - **Profile & Sign-In UI Integration**: Added a Google Account management card to the Profile modal (Connected badge, email, Connect/Disconnect controls) and a `Link my existing credentials with Google` checkbox in the login form.
   - **Comprehensive Auth Testing**: Added automated unit and integration tests covering linking, unlinking, lockout defense, and credential-validated sign-in linking (36/36 tests passing).
 
-- Phase 31: Google OAuth Password Recovery & Seamless Production CORS (Current):
+- Phase 31: Google OAuth Password Recovery & Seamless Production CORS:
   - **Google-Powered Password Recovery (`POST /api/auth/reset-password-google`)**: Allows users to recover and reset lost account passwords by proving identity through Google OAuth. Cryptographically verifies Google tokens, validates email/googleId ownership against the account, updates the password, and logs the user in.
   - **Dual-Mode Recovery UI**: Added interactive segmented switcher in the Forgot Password view allowing users to choose between 1-Click Google Recovery and the legacy 32-character hexadecimal recovery key.
   - **Production CORS Resilience**: Broadened CORS origin matcher in `server/src/app.js` to support `.vercel.app`, `.onrender.com`, `.pages.dev`, `.netlify.app`, and `localhost:*`. Eliminated 500 crashes by replacing `callback(new Error(...))` with standard `callback(null, false)`.
   - **Database Admin Reconciliation**: Auto-populated `allen`'s `email` (`allenmanoj2006@gmail.com`) and CSPRNG `recoveryKey` across both local MongoDB and MongoDB Atlas, enabling instant Google OAuth matching.
+
+- Phase 32: Prominent Google Account Linking, Dedicated Link Tab, Instant Browser OAuth Activation & Lockout-Safe Unlinking (Current):
+  - **Dedicated "Link Google" Tab & Action Flow**: Elevated account linking from a minor checkbox to a first-class citizen with a dedicated 3-tab auth switcher (`[ Sign In ]`, `[ Link Google ]`, `[ Register ]`) and in-form shortcut button. Allows existing users to enter username and password to link their Google account atomically during sign-in.
+  - **Prominent Profile Google Integration & Explicit Unlink**: Overhauled the Profile modal's Google Account card with clear status badges (`Connected with Google` vs `Not Linked`), displaying the linked Google identity, benefits of linking, and an explicit **"Unlink Google Account"** button with confirmation and password lockout protection.
+  - **Instant Browser OAuth Client ID Activation**: Integrated browser-persisted OAuth Client ID configuration (`revalgo_google_client_id`) directly into the setup assistant modal, allowing users to activate 1-click Google sign-in and account linking instantly in their browser without redeploying Vercel.
+  - **DOM Layout & Lifecycle Synchronization**: Resolved button initialization race conditions by decoupling modal visibility checks, leveraging `effectiveGoogleClientId`, and utilizing mounted timeout guards for seamless Google Identity SDK rendering across tabs.
 
 ## Next Logical Steps
 1. **Paid Tier Conversational Socratic Agent (LangGraph)**: Stateful mock interviewer agent engaging in turn-based dialogue, probing algorithmic gaps with adversarial counter test cases, and evaluating code (Detailed architecture specified in `docs/PRO_TIER_SOCRATIC_AGENT_PLAN.md`).

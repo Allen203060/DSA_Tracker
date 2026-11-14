@@ -8,7 +8,7 @@ import {
   Plus, RotateCcw, Sparkles, CheckCircle, Edit3, Save, Sun, Moon,
   User as UserIcon, LogOut, Key, ShieldCheck, UserPlus, ArrowLeft, Lock, Info, HelpCircle,
   Skull, AlertTriangle, Hourglass, Zap, Search, Wand2, Link2, CheckCheck, Download, Clock,
-  ArrowRight, GraduationCap, BookOpen, Lightbulb
+  ArrowRight, GraduationCap, BookOpen, Lightbulb, Unlink
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import ThreeBackground from './components/ThreeBackground';
@@ -81,6 +81,17 @@ function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [showGoogleConfigModal, setShowGoogleConfigModal] = useState(false);
   
+  // Custom Google OAuth Client ID (persisted in browser so users can activate Google 1-click instantly)
+  const [customGoogleClientId, setCustomGoogleClientId] = useState(() => {
+    try {
+      return localStorage.getItem('revalgo_google_client_id') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [tempGoogleClientId, setTempGoogleClientId] = useState('');
+  const effectiveGoogleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || customGoogleClientId;
+  
   // Authenticated profile password modification state
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [changeCurrentPassword, setChangeCurrentPassword] = useState('');
@@ -98,6 +109,8 @@ function App() {
   const [forgotMethod, setForgotMethod] = useState('google'); // 'google' | 'key'
 
   // Synchronized refs to avoid stale closures in OAuth callbacks
+  const authModeRef = useRef(authMode);
+  authModeRef.current = authMode;
   const linkWithGoogleRef = useRef(linkWithGoogle);
   linkWithGoogleRef.current = linkWithGoogle;
   const authUsernameRef = useRef(authUsername);
@@ -440,84 +453,108 @@ function App() {
   useEffect(() => {
     if (!isAuthModalOpen) return;
 
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const clientId = effectiveGoogleClientId;
     if (!clientId) return;
 
-    const initGoogle = () => {
-      if (window.google?.accounts?.id) {
-        try {
-          if (!currentUser) {
-            if (authMode === 'forgot' && forgotMethod === 'google') {
-              window.google.accounts.id.initialize({
-                client_id: clientId,
-                callback: handleGoogleRecoverySuccess,
-                auto_select: false,
-              });
-              const container = document.getElementById('googleRecoveryBtn');
-              if (container) {
-                container.innerHTML = '';
-                window.google.accounts.id.renderButton(container, {
-                  theme: theme === 'dark' ? 'filled_black' : 'outline',
-                  size: 'large',
-                  shape: 'rectangular',
-                  width: 320,
-                  text: 'continue_with',
-                });
-              }
-            } else {
-              window.google.accounts.id.initialize({
-                client_id: clientId,
-                callback: handleGoogleLoginSuccess,
-                auto_select: false,
-              });
-              const container = document.getElementById('googleSignInBtn');
-              if (container) {
-                container.innerHTML = '';
-                window.google.accounts.id.renderButton(container, {
-                  theme: theme === 'dark' ? 'filled_black' : 'outline',
-                  size: 'large',
-                  shape: 'rectangular',
-                  width: 320,
-                  text: 'continue_with',
-                });
-              }
-            }
-          } else if (!currentUser.googleId) {
+    let isMounted = true;
+
+    const renderButtons = () => {
+      if (!isMounted || !window.google?.accounts?.id) return;
+      try {
+        if (!currentUser) {
+          if (authMode === 'forgot' && forgotMethod === 'google') {
             window.google.accounts.id.initialize({
               client_id: clientId,
-              callback: handleGoogleLinkSuccess,
+              callback: handleGoogleRecoverySuccess,
               auto_select: false,
             });
-            const container = document.getElementById('googleLinkBtn');
+            const container = document.getElementById('googleRecoveryBtn');
             if (container) {
               container.innerHTML = '';
               window.google.accounts.id.renderButton(container, {
                 theme: theme === 'dark' ? 'filled_black' : 'outline',
                 size: 'large',
                 shape: 'rectangular',
-                width: 280,
+                width: 320,
+                text: 'continue_with',
+              });
+            }
+          } else if (authMode === 'link') {
+            window.google.accounts.id.initialize({
+              client_id: clientId,
+              callback: handleGoogleLoginSuccess,
+              auto_select: false,
+            });
+            const container = document.getElementById('googleLinkAccountBtn');
+            if (container) {
+              container.innerHTML = '';
+              window.google.accounts.id.renderButton(container, {
+                theme: theme === 'dark' ? 'filled_black' : 'outline',
+                size: 'large',
+                shape: 'rectangular',
+                width: 320,
+                text: 'continue_with',
+              });
+            }
+          } else {
+            window.google.accounts.id.initialize({
+              client_id: clientId,
+              callback: handleGoogleLoginSuccess,
+              auto_select: false,
+            });
+            const container = document.getElementById('googleSignInBtn');
+            if (container) {
+              container.innerHTML = '';
+              window.google.accounts.id.renderButton(container, {
+                theme: theme === 'dark' ? 'filled_black' : 'outline',
+                size: 'large',
+                shape: 'rectangular',
+                width: 320,
                 text: 'continue_with',
               });
             }
           }
-        } catch (err) {
-          console.warn('Google Sign-In initialization error:', err);
+        } else if (!currentUser.googleId) {
+          window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: handleGoogleLinkSuccess,
+            auto_select: false,
+          });
+          const container = document.getElementById('googleLinkBtn');
+          if (container) {
+            container.innerHTML = '';
+            window.google.accounts.id.renderButton(container, {
+              theme: theme === 'dark' ? 'filled_black' : 'outline',
+              size: 'large',
+              shape: 'rectangular',
+              width: 280,
+              text: 'continue_with',
+            });
+          }
         }
+      } catch (err) {
+        console.warn('Google Sign-In initialization error:', err);
       }
     };
 
-    if (window.google?.accounts?.id) {
-      initGoogle();
-    } else {
-      const timer = setInterval(() => {
+    const timer = setTimeout(renderButtons, 60);
+
+    let pollInterval = null;
+    if (!window.google?.accounts?.id) {
+      pollInterval = setInterval(() => {
         if (window.google?.accounts?.id) {
-          clearInterval(timer);
-          initGoogle();
+          clearInterval(pollInterval);
+          renderButtons();
         }
-      }, 300);
-      return () => clearInterval(timer);
+      }, 250);
     }
-  }, [isAuthModalOpen, authMode, forgotMethod, currentUser, theme]);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [isAuthModalOpen, authMode, forgotMethod, currentUser, theme, effectiveGoogleClientId]);
 
   const handleGoogleRecoverySuccess = async (response) => {
     setAuthLoading(true);
@@ -577,7 +614,7 @@ function App() {
   };
 
   const handleUnlinkGoogle = async () => {
-    if (!window.confirm('Are you sure you want to disconnect your Google account from this profile?')) {
+    if (!window.confirm(`Are you sure you want to unlink your Google account from @${currentUser.username}? You will need your username and password to log in.`)) {
       return;
     }
     setLinkingGoogleLoading(true);
@@ -593,9 +630,13 @@ function App() {
       const updatedUser = res.data.user;
       setCurrentUser(updatedUser);
       localStorage.setItem('revalgo_user', JSON.stringify(updatedUser));
-      setLinkingGoogleSuccess('Google account disconnected successfully.');
+      setLinkingGoogleSuccess('Google account unlinked successfully. You can reconnect any Google account whenever you wish.');
     } catch (err) {
-      setLinkingGoogleError(err.response?.data?.error || 'Failed to disconnect Google account.');
+      const errorMsg = err.response?.data?.error || 'Failed to unlink Google account.';
+      setLinkingGoogleError(errorMsg);
+      if (err.response?.status === 400 && errorMsg.toLowerCase().includes('password')) {
+        setShowChangePassword(true);
+      }
     } finally {
       setLinkingGoogleLoading(false);
     }
@@ -606,11 +647,11 @@ function App() {
     setAuthError('');
     try {
       const payload = { credential: response.credential };
-      if (linkWithGoogleRef.current) {
+      if (authModeRef.current === 'link' || linkWithGoogleRef.current) {
         const usernameInput = authUsernameRef.current?.trim();
         const passwordInput = authPasswordRef.current;
         if (!usernameInput || !passwordInput) {
-          setAuthError('Please enter your existing Revalgo username and password above to link with Google.');
+          setAuthError('Please enter your existing Revalgo username and password above to connect with Google.');
           setAuthLoading(false);
           return;
         }
@@ -627,8 +668,11 @@ function App() {
       setIsAuthModalOpen(false);
       setAuthError('');
       setLinkWithGoogle(false);
+      setAuthMode('login');
+      fetchQuestions();
+      fetchActivityStats();
     } catch (err) {
-      setAuthError(err.response?.data?.error || 'Google Sign-In failed. Please try again.');
+      setAuthError(err.response?.data?.error || 'Google authentication failed. Please try again.');
     } finally {
       setAuthLoading(false);
     }
@@ -3524,17 +3568,22 @@ function App() {
                   )}
 
                   {currentUser.googleId ? (
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-xs text-slate-600 dark:text-slate-300 font-mono truncate max-w-[210px]" title={currentUser.email || 'Connected'}>
-                        {currentUser.email || 'Connected'}
-                      </span>
+                    <div className="flex items-center justify-between gap-3 pt-1">
+                      <div className="truncate">
+                        <span className="text-[10px] text-slate-400 uppercase font-mono block">Linked Identity</span>
+                        <span className="text-xs text-slate-700 dark:text-slate-300 font-mono font-medium truncate block max-w-[200px]" title={currentUser.email || 'Connected'}>
+                          {currentUser.email || 'Connected'}
+                        </span>
+                      </div>
                       <button
                         type="button"
                         onClick={handleUnlinkGoogle}
                         disabled={linkingGoogleLoading}
-                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition-all disabled:opacity-50"
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 border border-rose-500/25 transition-all flex items-center gap-1.5 shrink-0 disabled:opacity-50"
+                        title="Disconnect your Google account from this profile"
                       >
-                        {linkingGoogleLoading ? 'Disconnecting...' : 'Disconnect'}
+                        <Unlink className="w-3.5 h-3.5" />
+                        <span>{linkingGoogleLoading ? 'Unlinking...' : 'Unlink Google Account'}</span>
                       </button>
                     </div>
                   ) : (
@@ -3543,7 +3592,7 @@ function App() {
                         Connect your Google account to enable instant, 1-click passwordless login while keeping all your problems and revision intervals.
                       </p>
                       <div id="googleLinkBtn" className="flex justify-center min-h-[40px]"></div>
-                      {!import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+                      {!effectiveGoogleClientId && (
                         <button
                           type="button"
                           onClick={() => setShowGoogleConfigModal(true)}
@@ -3657,17 +3706,19 @@ function App() {
                     {authMode === 'login' && 'Welcome to Revalgo'}
                     {authMode === 'register' && 'Create Peer Account'}
                     {authMode === 'forgot' && 'Reset Account Password'}
+                    {authMode === 'link' && 'Connect Existing Account'}
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {authMode === 'login' && 'Sign in to access your spaced repetition queue & algorithm notes'}
                     {authMode === 'register' && 'Get your own isolated revision queue & personalized AI buddy'}
-                    {authMode === 'forgot' && 'Recover access using your account username and recovery key'}
+                    {authMode === 'forgot' && 'Recover access using your account username and recovery key or Google'}
+                    {authMode === 'link' && 'Link your registered credentials once to enable 1-click Google Sign-In'}
                   </p>
                 </div>
 
-                {/* Tab Switcher (Only visible for login / register) */}
+                {/* Tab Switcher (Only visible for login / register / link) */}
                 {authMode !== 'forgot' && (
-                  <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-200/60 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] text-xs font-medium">
+                  <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-200/60 dark:bg-slate-900/60 border border-slate-300/40 dark:border-white/[0.06] text-xs font-medium">
                     <button
                       type="button"
                       onClick={() => { setAuthMode('login'); setAuthError(''); }}
@@ -3677,10 +3728,18 @@ function App() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => { setAuthMode('link'); setAuthError(''); }}
+                      className={`py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${authMode === 'link' ? 'bg-white dark:bg-indigo-600 text-slate-900 dark:text-white shadow-sm font-semibold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                    >
+                      <Link2 className="w-3.5 h-3.5" />
+                      <span>Link Google</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => { setAuthMode('register'); setAuthError(''); }}
                       className={`py-1.5 rounded-lg transition-all ${authMode === 'register' ? 'bg-white dark:bg-indigo-600 text-slate-900 dark:text-white shadow-sm font-semibold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
                     >
-                      Create Account
+                      Register
                     </button>
                   </div>
                 )}
@@ -3760,7 +3819,7 @@ function App() {
                         <div className="pt-1">
                           <div id="googleRecoveryBtn" className="w-full flex justify-center min-h-[44px]"></div>
 
-                          {!import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+                          {!effectiveGoogleClientId && (
                             <button
                               type="button"
                               onClick={() => setShowGoogleConfigModal(true)}
@@ -3855,6 +3914,99 @@ function App() {
                       </button>
                     </div>
                   </div>
+                ) : authMode === 'link' ? (
+                  /* --- LINK EXISTING ACCOUNT WITH GOOGLE VIEW --- */
+                  <div className="space-y-3.5">
+                    <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed flex items-start gap-2.5">
+                      <Link2 className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold block text-slate-900 dark:text-white mb-0.5">Link Your Existing Account</span>
+                        <span>
+                          Enter your Revalgo username and password below, then authenticate with Google. This will permanently connect your Google ID to your existing profile, enabling 1-click Google Sign-In with all your questions and spaced repetition intervals preserved.
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
+                        Existing Username
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. allen"
+                        value={authUsername}
+                        onChange={(e) => setAuthUsername(e.target.value)}
+                        className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                          Existing Password
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthMode('forgot');
+                            setAuthError('');
+                            setAuthRecoveryKey('');
+                            setAuthNewPassword('');
+                          }}
+                          className="text-[11px] text-indigo-500 hover:text-indigo-400 font-medium hover:underline transition-all"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+                      <input
+                        type="password"
+                        required
+                        placeholder="••••••••"
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        className="w-full glass-input px-3.5 py-2 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors"
+                      />
+                    </div>
+
+                    <div className="pt-2">
+                      <div className="relative flex py-2 items-center">
+                        <div className="flex-grow border-t border-slate-200/80 dark:border-white/[0.08]"></div>
+                        <span className="flex-shrink mx-3 text-[10px] uppercase font-mono text-slate-400 tracking-wider">verify &amp; connect</span>
+                        <div className="flex-grow border-t border-slate-200/80 dark:border-white/[0.08]"></div>
+                      </div>
+
+                      <div className="mt-2 flex flex-col items-center justify-center min-h-[44px]">
+                        <div id="googleLinkAccountBtn" className="w-full flex justify-center"></div>
+
+                        {!effectiveGoogleClientId && (
+                          <button
+                            type="button"
+                            onClick={() => setShowGoogleConfigModal(true)}
+                            className="w-full py-2.5 px-4 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition-all flex items-center justify-center gap-2.5 shadow-sm active:scale-[0.99]"
+                          >
+                            <svg className="w-4 h-4" viewBox="0 0 24 24">
+                              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                            </svg>
+                            <span>Connect &amp; Sign In with Google</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="text-center pt-2">
+                      <button
+                        type="button"
+                        onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                        className="text-xs text-indigo-500 hover:text-indigo-400 font-medium inline-flex items-center gap-1"
+                      >
+                        <ArrowLeft className="w-3 h-3" /> Back to Sign In
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   /* STANDARD LOGIN / REGISTER FORM */
                   <form onSubmit={handleAuthSubmit} className="space-y-3.5">
@@ -3932,6 +4084,17 @@ function App() {
                       )}
                     </button>
 
+                    {authMode === 'login' && (
+                      <button
+                        type="button"
+                        onClick={() => { setAuthMode('link'); setAuthError(''); }}
+                        className="w-full py-1.5 px-3 rounded-xl border border-dashed border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <Link2 className="w-3.5 h-3.5" />
+                        Connect Existing Account with Google
+                      </button>
+                    )}
+
                     {/* Google OAuth Section */}
                     <div className="pt-2">
                       <div className="relative flex py-2 items-center">
@@ -3958,7 +4121,7 @@ function App() {
                         <div id="googleSignInBtn" className="w-full flex justify-center"></div>
 
                         {/* Fallback Google button if client ID is not yet defined in environment */}
-                        {!import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+                        {!effectiveGoogleClientId && (
                           <button
                             type="button"
                             onClick={() => setShowGoogleConfigModal(true)}
@@ -4045,6 +4208,51 @@ function App() {
               </ol>
               <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[11px]">
                 The backend is already fully equipped to verify tokens via Google&apos;s tokeninfo endpoint and auto-provision user accounts!
+              </div>
+
+              <div className="pt-2 border-t border-slate-200/60 dark:border-white/[0.06] space-y-2">
+                <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block">
+                  Instant Browser Activation (Paste your Client ID):
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. 123456789-xxx.apps.googleusercontent.com"
+                    value={tempGoogleClientId}
+                    onChange={(e) => setTempGoogleClientId(e.target.value)}
+                    className="flex-1 glass-input text-xs px-3 py-1.5 rounded-xl font-mono outline-none focus:border-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cleaned = tempGoogleClientId.trim();
+                      if (!cleaned) return;
+                      localStorage.setItem('revalgo_google_client_id', cleaned);
+                      setCustomGoogleClientId(cleaned);
+                      setShowGoogleConfigModal(false);
+                    }}
+                    disabled={!tempGoogleClientId.trim()}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-sm transition-all"
+                  >
+                    Activate
+                  </button>
+                </div>
+                {customGoogleClientId && (
+                  <div className="flex items-center justify-between text-[10px] text-emerald-500 pt-1 font-mono">
+                    <span className="truncate max-w-[220px]">Active in browser: {customGoogleClientId.slice(0, 20)}...</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.removeItem('revalgo_google_client_id');
+                        setCustomGoogleClientId('');
+                        setTempGoogleClientId('');
+                      }}
+                      className="text-rose-400 hover:text-rose-500 underline font-sans"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             <div className="mt-5 flex justify-end">
