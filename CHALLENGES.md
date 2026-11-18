@@ -649,6 +649,25 @@ After saving the Google OAuth Client ID in Vercel's environment variables dashbo
 **Key Takeaway (Interview Insight):**
 Cloud platforms often employ heuristics to prevent secret leakage (e.g. flagging `NEXT_PUBLIC_` or `VITE_`). In monorepo architectures where frontend and backend environment variables may drift, configuring build tooling (`define` in Vite/Webpack) to bridge multiple naming conventions provides resilient developer experience without sacrificing production security boundaries.
 
+## Challenge 41: Automated CI Pipeline, Test-Matrix Regression Guard & Multi-Service Docker Build Validation
+
+**The Problem:**
+As Revalgo expanded across multi-tenant auth, SM-2 scheduling, AI evaluation, and cloud hosting, manual testing and local verification were vulnerable to regression. Breaking changes to API contracts, mathematical retention curves, or frontend build configurations could slip into production unnoticed.
+
+**Root Cause:**
+Without automated CI/CD checks hooked directly into git commit and pull request lifecycles, dependency drift, syntax regressions in test suites, or Dockerfile compilation failures only surfaced after deployments were triggered or reported by end users.
+
+**Solution:**
+1. **GitHub Actions Workflow Orchestration (`.github/workflows/ci.yml`)**:
+   - Built a two-stage CI pipeline executing automatically on every `push` and `pull_request` targeting `main`.
+2. **Automated Vitest & Build Quality Gate**:
+   - Spun up an isolated Ubuntu runner on Node.js 20, executing the full 39-test Vitest unit and integration suite (validating auth guards, SuperMemo-2 mathematical edge cases, and dynamic workload throttling) followed by the Vite production client bundle compilation.
+3. **Containerization & Smoke Validation Gate**:
+   - Configured Docker Buildx to build and smoke-test Docker container images for both `./server` and `./client`, ensuring containerization integrity and zero missing build assets prior to deployment.
+
+**Key Takeaway (Interview Insight):**
+Integrating automated test suites and Docker build checks directly into a Git CI pipeline transforms quality assurance from a reactive chore into an automated, deterministic gate. This directly satisfies enterprise DevOps criteria by catching defects early, preventing API contract regressions, and maintaining 100% production readiness.
+
 
 
 
