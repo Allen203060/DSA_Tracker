@@ -52,12 +52,17 @@ Rather than relying on passive flashcards or subjective self-reporting, Revalgo 
 
 ## 🛠️ Architecture & Tech Stack
 
-* **Frontend**: React (Vite), Tailwind CSS (Glassmorphism design, vibrant dark mode, Lucide icons)
-* **Backend**: Node.js, Express.js (RESTful API architecture)
-* **Database**: MongoDB (Mongoose Schema with extended code & test-case schemas)
-* **AI & LLM Orchestration**: LangChain.js via OpenRouter API utilizing `nvidia/nemotron-3.5-lightning`
+* **Frontend**: React 18, Vite, Tailwind CSS (Glassmorphism design system, Lucide icons, View Transitions API)
+* **Backend**: Node.js 20, Express.js (RESTful API architecture, CORS origin whitelisting, `/api/health` probes)
+* **Database & Persistence**: MongoDB Atlas (Cloud database with Mongoose schemas for multi-tenancy, review histories, and test matrices)
+* **AI & LLM Orchestration**: LangChain.js via OpenRouter API utilizing `nvidia/nemotron-3.5-lightning` with structured JSON schema output parsing
+* **Distributed Cloud Deployment**: 
+  * **Frontend**: Deployed on **Vercel** with Edge CDN caching and build-time environment injection
+  * **Backend**: Deployed on **Render** as a containerized web service with automated health checks
+  * **Database**: Hosted on **MongoDB Atlas** with connection pooling and automated failover
+* **CI/CD & DevOps**: GitHub Actions automated pipeline executing a 39-test Vitest unit/integration suite, Vite production client bundling, and Docker Buildx multi-service container builds
+* **Containerization**: Docker & Docker Compose (Multi-stage builds for local dev and production parity)
 * **Agentic Graph Context**: NanoNets Graft (`@nanonets/graft`) for deterministic codebase context indexing
-* **Containerization**: Docker & Docker Compose
 
 ---
 
