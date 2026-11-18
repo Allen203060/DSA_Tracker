@@ -1,0 +1,57 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-and-validate:
+    name: Automated Testing & Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Monorepo Dependencies
+        run: npm install
+
+      - name: Execute Vitest Suite (Unit & Integration Matrix)
+        run: npm test
+
+      - name: Build Production Frontend Bundle (Vite)
+        run: |
+          cd client
+          npm run build
+
+  container-build:
+    name: Docker Containerization & Smoke Validation
+    needs: test-and-validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Server Container Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          push: false
+          tags: revalgo-server:latest
+
+      - name: Build Client Container Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./client
+          push: false
+          tags: revalgo-client:latest
