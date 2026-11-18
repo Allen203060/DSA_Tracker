@@ -1,11 +1,16 @@
 # Project Soul: Revalgo — AI-Powered Spaced Repetition Platform
 
 ## Core Architecture
-- **Stack**: MERN (MongoDB, Express.js, React, Node.js)
-- **Frontend Styling**: React + Tailwind CSS (Aesthetic: Modern, Dark Mode, Glassmorphism)
-- **AI Integration**: LangChain.js (OpenRouter)
-- **Environment**: Docker Compose (Full Stack Isolated Dev Environment).
-- **Spaced Repetition Algorithm**: SuperMemo-2 (SM-2) for intelligent revision scheduling.
+- **Stack**: MERN (MongoDB Atlas, Express.js, React 18, Node.js 20)
+- **Distributed Cloud Topology**:
+  - **Frontend Client**: React/Vite SPA hosted on **Vercel** with Edge CDN caching and automated build-time environment variable injection.
+  - **Backend API**: Containerized Node.js/Express REST API hosted on **Render** with CORS origin security and continuous uptime health probes (`/api/health`).
+  - **Database Persistence**: **MongoDB Atlas** M0 multi-tenant cloud cluster with automated replica failover and connection pooling.
+- **Frontend Styling**: React + Tailwind CSS (Aesthetic: Modern, Dark Mode, Glassmorphism, View Transitions API)
+- **AI Integration**: LangChain.js via OpenRouter (`nvidia/nemotron-3.5-lightning`) with structured JSON schema output parsing.
+- **CI/CD & DevOps**: GitHub Actions automated pipeline executing a 39-test Vitest unit/integration suite, client bundling, and Docker Buildx multi-service container builds.
+- **Environment**: Docker Compose (Full Stack Isolated Dev Environment) & Dockerfile multi-stage builds.
+- **Spaced Repetition Algorithm**: SuperMemo-2 (SM-2) with priority decay scoring for intelligent revision scheduling.
 
 ## Current Progress
 - **Phase 1-4**: Architecture, Backend, Docker, and Core UI complete.
